@@ -1,0 +1,68 @@
+
+
+This approach uses strings to remove the % and make the column numeric...
+
+i didn't calculate the state average, but just mapped the average % of students that met the standard per county.
+
+```{r}
+library(tidyverse)
+library(here)
+library(sf)
+library(janitor)
+library(tmap)
+
+
+# read
+report <- read_csv(here::here("homework_2", 
+                              "Report_Card_Assessment_Data_2018-19_School_Year.csv"),
+                              na= "NULL")
+
+shape <- st_read(here::here("homework_2",
+                            "Washington_Counties_with_Natural_Shoreline___washsh_area",
+                            "Washington_Counties_with_Natural_Shoreline___washsh_area.shp"))
+
+
+county_only <- report %>%
+  clean_names()%>%
+  select(county, organization_level, test_subject, percent_met_standard)%>%
+  filter(county != "Multiple")%>%
+  filter(organization_level == "School")%>%
+  filter(test_subject == "Science") %>%
+  filter(percent_met_standard != "Suppressed: N<10")%>%
+  filter(percent_met_standard != "No Students")%>%
+  # negate if true return rows that DO NOT match
+  filter(str_detect(percent_met_standard, "^<", negate = T))%>%
+  mutate(percent_met_standard = str_replace_all(percent_met_standard, pattern = c('%' = "")))%>%
+  mutate(percent_met_standard2= as.numeric(percent_met_standard))%>%
+  group_by(county)%>%
+  summarise(average_met=mean(percent_met_standard2, na.rm=T))
+
+
+joined_data <- shape %>% 
+  clean_names() %>%
+  left_join(., 
+            county_only,
+            by = c("countylabe" = "county"))
+
+
+# bbox_county <- shape %>%
+#   st_bbox(.) %>% 
+#   tmaptools::read_osm(., type = "osm", zoom = NULL)
+
+# tm_shape(bbox_county)+
+#   tm_rgb()+
+
+
+  tm_shape(joined_data) + 
+  tm_polygons(fill="average_met",
+              fill.scale = tm_scale_intervals(
+                values="brewer.bu_pu"),
+              fill_alpha=0.5)+
+  tm_compass(position = c("left", "bottom"),type = "arrow")+
+  tm_scalebar(position = c("left", "bottom")) +
+  tm_title_out("Percent met", 
+           position=tm_pos_out("center", "top"))
+
+  
+```
+
