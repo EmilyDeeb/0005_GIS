@@ -1,0 +1,11 @@
+[gui]
+	recentrepo = C:/Users/emily/OneDrive/Desktop/Sample Project
+[user]
+	name = EmilyDeeb
+	email = ucfndee@ucl.ac.uk
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+
