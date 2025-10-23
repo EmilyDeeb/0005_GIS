@@ -220,3 +220,8 @@ __marimo__/
 *.shp
 *.gpkg
 .Rproj.user
+.Rhistory
+.RData
+.httr-oauth
+.DS_Store
+.quarto
