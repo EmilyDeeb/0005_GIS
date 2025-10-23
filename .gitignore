@@ -219,6 +219,8 @@ __marimo__/
 *.xlsx
 *.shp
 *.gpkg
+*.geojson
+
 .Rproj.user
 .Rhistory
 .RData
