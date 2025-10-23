@@ -8,22 +8,131 @@ date: "2025-10-23"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Homework WK 04 
+The purpose is to create a map that show cases the difference in Gender inequality between the year 2010 and 2019 in the world.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+### **Refferences:**
+#### Gender Inequality Index Data
+<p> **File:** HDR_Composite_indices_complete_time_series.csv
+<p>**URL:**[Human Development Reports](https://hdr.undp.org/data-center/documentation-and-downloads).
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+#### Spatial Data of the World
+<p> **File:** GeoJSON file
+<p> **URL:** [ArcGIS](https://hub.arcgis.com/datasets/2b93b06dc0dc4e809d3c8db5cb96ba69_0/explore?location=-0.146900%2C0.000000%2C1.41)
 
-```{r cars}
-summary(cars)
+### **Mythology:**
+- **Step 1:** Clean the CSV into a readable file containing iso 3, country, region, gii_2010, gii_2019. 
+<p> create a new column that calculates the difference between 2010 and 2019 named gii_diff
+<p> *packages used: mutate(), Sf(), tidyverse()*
+
+- **Step 2:** Merge, left join with the Geom in the arc file while using the [*countrycode package^[1]*](https://github.com/vincentarelbundock/countrycode).  
+
+- **Step 3:** Create a map that showcases a gradient of how much gender inequality changed between the years. 
+<p>*Red* didnt change much, *Blue* changed positively.
+
+```{r}
+library(sf)
+library(here)
+library(janitor)
+library(tidyverse)
+library(countrycode)
+library(tmap)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+csv <- read_csv(here::here("DATA","HDR25_Composite_indices_complete_time_series.csv"),
+                          locale = locale(encoding = "latin1"),
+                          na = " ", skip=0)
+```
+```{r}
+world <- st_read(here::here("DATA","World_Countries_(Generalized)_9029012925078512962.geojson"))
+```
+```{r}
+slice_head(csv, n = 5)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+slice_head(world, n = 5)
+```
+We need to merge according to country, but first lets clean the lists, or merge via the iso
+
+```{r}
+csv <- csv %>% clean_names()
+world <- world %>% clean_names()
+```
+
+
+edit the csv do it will only contain the column we need
+
+
+```{r}
+csvedited <- csv %>%
+  dplyr::select(iso3,
+                country,
+                gii_2010,
+                gii_2019) %>%
+  mutate(gii_diff = (gii_2019 - gii_2010)) %>% 
+  na.omit()
+```
+
+
+Join the csv with the world map
+
+
+```{r}
+mergedmap <- world %>%
+  left_join(csvedited, by = c("country" = "country"))
+```
+
+
+Clean again, i wonder if i can make it all together
+
+
+```{r}
+mergedmap <- mergedmap %>%
+  dplyr::select(country,
+                iso3,
+                gii_2010,
+                gii_2019,
+                gii_diff,
+                geometry)
+```
+
+
+lets create a map
+
+
+```{r}
+tmap_mode("plot")
+qtm(mergedmap, fill = "gii_diff")
+```
+lets have fun
+```{r}
+tmap_mode("plot")
+qtm(mergedmap,
+    fill = "gii_diff",
+    fill.palette = c("red", "blue"),
+    title = "Countries who improved their gender equality through the years.")
+```
+with gimini
+```{r}
+tmap_mode("plot")
+
+qtm(mergedmap,
+    fill = "gii_diff",
+    # 1. Use a diverging color scheme
+    # 'RdBu' is Red-Blue, 'BrBG' is Brown-Green, both good for divergence
+    fill.palette = "RdBu",
+    # 2. Set the midpoint of the color scale to 0 (no change)
+    fill.midpoint = 0,
+    # 3. Adjust the legend title to be clearer
+    title = "Change in Gender Inequality Index (2019 minus 2010)",
+    # 4. Add a legend text label to explain the difference
+    title.col = "GII Difference") +
+tm_layout(
+    # 6. Center the main title
+    main.title.position = "center",
+    main.title.size = 1.2
+)
+```
+
