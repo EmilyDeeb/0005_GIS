@@ -1,29 +1,456 @@
 ---
 title: "WK05"
-output: html_document
 date: "2025-10-30"
+output:
+  html_document:
+    css: style.css
+  pdf_document: default
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+#### **01 OSM Part** (ShapeFile)<br>
+**Step One:** We are Going to Use *"Geofabrik"* Website and download the server\
+**Step Two:** Navigate to Europe > UK > England > Greater London\
+**Step Three:** Download <span style="color:Blue;">**greater-london-latest-free.shp.zip**</span>\
+**Step Four:** Unzip File and Save it into DATA\
+
+#### **02 London Boroughs** (Boundry > ShapeFile)\
+**Step One:** Get the data go to the London data store.\
+**Step Two:** Statistical GIS boundary files for London.\
+**Step Three:** Download the <span style ="color:Red;">**statistical-gis-boundaries-london.zip**</span>\
+**Step Four:** Unzip the Data and save it to DATA folder.\
+
+#### **03 World cities** (Context > ShapeFile)\
+**Step Five:** Download them from the ArcGIS HUB > Download > Shapefile.\
+
+#### **04 UK Outline** (Context > Shapefile)\
+**Step Six:** Download GADM data for the UK.\
+
+#### **05 Airbnb:** (CSV)
+**Step Seven:** Download the <span style="color:Green;">**listings.csv**</span> from the inside airbnb website for London.
+
+#### **06 Goal:**
+1. Compare Airbnb and hotels across London Boroughs
+2. Join the Airbnbs to the MSOAs and sum (i.e. how many are in each MSOA)
+3. Join the Hotels to the MSOAs and sum
+
+```{r}
+library(sf)
+library(tidyverse)
+
+# Reading OSM Data
+
+OSM <- st_read("DATA/greater-london-251102-free.shp/gis_osm_pois_a_free_1.shp")%>%
+  st_transform(., 27700) %>%
+  #select hotels only
+  filter(fclass == 'hotel')
+```
+```{r}
+# Airbnb data
+Airbnb <- read_csv("DATA/listings (2).csv") %>%
+  # longitude is considered x value here, latitude is y
+  st_as_sf(., coords = c("longitude", "latitude"), 
+                   crs = 4326) %>%
+    st_transform(., 27700)%>%
+    #select entire places that are available all year
+    filter(room_type == 'Entire home/apt' & availability_365 =='365')
+
+
+#London Borough data is already in 277000
+Londonborough <- st_read("DATA/statistical-gis-boundaries-london/ESRI/London_Borough_Excluding_MHW.shp")%>%
+  st_transform(., 27700)
+
+```
+```{r}
+# load world cities
+Worldcities <- st_read("DATA/World_Cities/World_Cities.shp") %>%
+  st_transform(., 27700)
+```
+```{r}
+# filter based on key cities
+Worldcities2 <- Worldcities %>%
+  filter(CNTRY_NAME=='United Kingdom'&
+           Worldcities$CITY_NAME=='Birmingham'|
+           Worldcities$CITY_NAME=='London'|
+           Worldcities$CITY_NAME=='Edinburgh')
+
+# load UK outline
+UK_outline <- st_read("DATA/gadm41_GBR_shp/gadm41_GBR_0.shp")%>%
+  st_transform(., 27700)
+```
+Lets use st_join() joining based on a column, what we want to make is that each hotel will be a new row. each hotel will have also a borough column. 
+```{r}
+Hotels <-  st_join(Londonborough, OSM)
+
+Airbnbs <-  st_join(Londonborough, Airbnb)
+
+head(Hotels)
 ```
 
-## R Markdown
+group by and summarize 
+```{r}
+Hotels_sum <- Hotels %>%
+  # we need to list the columns we want to keep in the summarise
+  group_by(., GSS_CODE, NAME)%>%
+  # for each group count the number of rows and store in a column called accomodation count.
+  summarise(`Accomodation count` = n())
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+Airbnb_sum <- Airbnbs %>%
+  group_by(., GSS_CODE, NAME)%>%
+  summarise(`Accomodation count` = n())
 ```
 
-## Including Plots
+a spatial join in like a left join, the boroughs will always exist. 
+```{r}
+# the st_join data = 0 Hotels
+Hotels %>%
+  filter(NAME=="Barking and Dagenham")
 
-You can also embed plots, for example:
+# the group by and summarise data = 1 Hotel!
+Hotels_sum %>%
+  filter(NAME=="Barking and Dagenham")
+```
+using st feature to see if st_contains(A, B) - Does A (boroughs) contain B (OSM)\
+Returns a list of boroughs (33 rows) and in each borough a list of hotels
+```{r}
+Hotels_example <-st_contains(Londonborough, OSM)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+Hotels_example
+```
+we take the length of that list per borough 
+```{r}
+Accomodation_contained <- Londonborough%>%
+  mutate(hotels_n = lengths(st_contains(., OSM)))%>%
+  mutate(airbnbs_n = lengths(st_contains(., Airbnbs)))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+# the group by and summarise data = 1 Hotel!
+Accomodation_contained %>%
+  filter(NAME=="Barking and Dagenham")
+```
+```{r}
+Hotels2 <-  st_join(OSM, Londonborough)
+
+#London_data <-  st_join(London_borough_data1, London_borough_data2, join=st_equals)
+```
+**Mapping**
+loading your shape object with tm_shape() (here sf object, but it could be a raster)
+setting the map layer (e.g. polygons (tm_polygons()), symbols (tm_symbols()),raster (tm_raster()), text (tm_text()), lines (tm_lines()) etc).
+applying a derived function (e.g. border (tm_borders()), fill (tm_fill()), markers (tm_markers()).
+
+```{r}
+remotes::install_github("r-tmap/tmap")
+
+library(tmap)
+
+# change to "view" for an interactive map
+tmap_mode("plot")
+
+```
+```{r}
+# set the shape
+tm1 <- tm_shape(Accomodation_contained) + 
+  # set the map layer
+  # try changing this to tm_symbols()
+  tm_polygons("hotels_n",
+              col = "black", lwd=0.5, lty="dashed",)
+
+# plot the map
+tm1
+```
+
+just borders 
+```{r}
+tm_no_map_layer <- tm_shape(Accomodation_contained) + 
+  # there is no tm_polygons() if we just want the map with no spatial data
+  tm_borders(col = "darkblue")
+
+tm_no_map_layer
+```
+
+Add information to the map 
+```{r}
+tmap_mode("plot")
+
+# plot each map
+tm1 <- tm_shape(Accomodation_contained) + 
+  tm_polygons(fill ="hotels_n",
+              col = "black", 
+              lwd =0.5,
+              lty="dashed",
+              fill.chart = tm_chart_violin(),
+              # above this was the same as before
+              fill.scale = tm_scale_intervals(
+                values="brewer.bu_pu",
+                n=5,
+                style="jenks"))
+
+tm1
+```
+
+in the above code we have:<p>
+- tm_scale_intervals() - used for numerical data<p>
+- values - the values to use to style the map, here it’s blue from the colour brewer list.<p> There are a number of options here. See the next code chunk.<p>
+- n - the number of breaks to have<p>
+- style - how to decide where to make the breaks. We have a lot of choice for this. See the<p>
+interval scale reference. Jenks looks for the natural breaks in the data and is often used.<p>
+- fill_chart() produces a summary of the mapped data with a violin plot, there are many<p> options see the tmap chart vigette.<p>
+More colors with brewer.bu_pu
+
+```{r}
+library(colorblindcheck)
+library(cols4all)
+#cols4all::c4a_gui()
+print("Hello")
+```
+
+setting up breaks across two data sets 
+```{r}
+stats <- Accomodation_contained %>%
+  st_drop_geometry() %>%
+  dplyr::select(hotels_n, airbnbs_n) %>%  
+  summarise(across(everything(), list(
+    min = min,
+    max = max,
+    mean = mean,
+    median = median,
+    sd = sd
+  )))
+```
+
+using the airbnb as the greatest range and apply them to both data sets
+```{r}
+library(classInt)
+# Get Jenks breaks for 5 classes
+breaks <- Accomodation_contained%>%
+  st_drop_geometry()%>%
+  #need a numeric vector not a dataframe or tibble
+  pull(airbnbs_n) %>%             
+  classIntervals(., n = 5, style = "jenks")
+  
+breaks$brks
+```
+Not let’s make the maps for Hotels and Airbnbs as per the original plan. Because we have our<p>
+data of interest in two separate we have a few options:<p>
+
+Make a tmap object for each dataset (i.e. the same as above but now for airbnb)<p>
+Use a facet map - this allows small maps for each group (here the group is airbnb or hotel)<p>
+Let’s set up the facets..<p>
+
+```{r}
+tm1 <- tm_shape(Accomodation_contained) +
+    tm_polygons(
+      fill = c("hotels_n", "airbnbs_n"),
+      fill.scale = tm_scale_intervals(values = "brewer.blues", breaks=breaks$brks),
+      # set the legend
+      fill.legend = tm_legend(title="Accomodation count",
+                              title.size=0.85,
+                              size=0.8,
+                              # plot outside of the main map
+                              #explained below
+                              position=tm_pos_out("right", 
+                                                  "center",
+                                                  pos.v = "center")),
+      # all facets share the same legend
+      fill.free = FALSE)+
+  # make 2 rows for the facets
+  tm_facets(nrow=2)
+
+tm1
+```
+
+```{r}
+# tm_pos_out() the arguments that follow set where to place the legend:
+# right = in the area to the right side of the plot (each map is a 3x3 grid or possible area)
+# center = in the center [adjusted to the center] of the right “column”
+# pos.v = "center" = in the middle of the column (not top of bottom)
+# The vertical (pos.v) and horizontal (pos.h) positions can also be set numerically where in relation to the top left hand corner of the object you are placing.
+
+# 0 = left (pos.h) or bottom (pos.v) 1 = right (pos.h) or top (pos.v)
+```
+
+For now, we need to:
+
+Change the labels (tm_layout())<p>
+Add a compass (tm_compass())<p>
+Add a scalebar (tm_scalebar())<p>
+Add a credit to OSM/Airbnb (tm_credits())<p>
+
+```{r}
+# change headings or remove
+
+tm2 <- tm1+
+  tm_layout(panel.labels=c("Hotels", "Airbnb"),
+            panel.show = TRUE
+            #panel.label.bg.color = "transparent",
+            )+
+  
+  tm_compass(type= "arrow",
+            size=1.8, 
+            position = tm_pos_out("right", 
+                                  "center",
+                                  pos.h= -0.05,
+                                  pos.v =0.72))+
+  tm_scalebar(text.size = 0.7,
+              width=10,
+              breaks=c(0,10,20),
+              position = tm_pos_out("right",
+                                    "center", 
+                                    pos.h=0.075,
+                                    pos.v = 0.68))+
+  # we could use tm_credits to place sub-titles like (A) or (B)
+  # on the map.
+  tm_credits("(c) OpenStreetMap contrbutors and Air b n b",
+             size=0.6,
+             position = tm_pos_out("center",
+                                   "bottom",
+                                   pos.v = 1.5,
+                                   pos.h=-0.02))
+
+tm2
+```
+
+Saving the file into desktop
+```{r}
+tmap_save(tm2, "DATA/1_facet.png", width = 8, height = 6, units="in", dpi = 300)
+```
+
+```{r}
+qtm(UK_outline)
+```
+
+```{r}
+#UK box according to bboxfinder and using st to crop it
+newbb <- c(xmin=-296000, ymin=5408, xmax=655696, ymax=1000000)
+
+UK_outlinecrop <- UK_outline$geometry %>%
+  st_crop(., newbb)
+```
+To add layers to an individual map we add another geometry, here we have out UK outline<p>
+tm_polygons) then add our cities (tm_symbols) on top of the polygons.<p>
+
+```{r}
+tm3 <- tm_shape(UK_outlinecrop)+ 
+  tm_polygons(col="darkslategray1")+
+    tm_layout(frame=FALSE)+
+  tm_shape(Worldcities2) +
+    #adds the city points
+    tm_symbols(shape=20,
+               fill = "orange",
+               #outline colour
+               col="black",
+               size=0.8)+
+        #add the city labels, x and y move the label around the point
+    tm_text("CITY_NAME", xmod=-1, ymod=-0.5)
+
+
+tm3
+```
+
+add a visual grey bounding box 
+
+```{r}
+# st_bbox gives the bounding x and y coordinates 
+Londonbb <- st_bbox(Accomodation_contained,
+                    crs = st_crs(Accomodation_contained))%>%
+# st_as_sfc coverts the coordinates to an sf object
+  st_as_sfc()
+
+tm4 <- tm3 +
+  tm_shape(Londonbb)+ 
+  tm_borders(col = "grey40", lwd = 3)+
+    tm_layout(frame=FALSE,
+            bg.color = "transparent")
+```
+
+arranging the map with tmap_arrange() - although it doesn't give alot of control
+we will focus on:
+tm_grob()
+```{r}
+inset <- tmap_grob(tm4, asp=1.1)
+
+final_map<- tm2+
+  tm_inset(inset,
+             position = tm_pos_out("right", "center"))
+tmap_save(final_map, "prac5_data/2_facet.png", width = 8, height = 6, units="in", dpi = 300)
+```
+
+grid package and relocation of the object<p>
+make data long in order to make violin
+
+```{r}
+library(ggplot2)
+
+accom_long <- Accomodation_contained %>%
+  # drop geometry for plotting
+  st_drop_geometry() %>%  
+  pivot_longer(
+    cols = c(hotels_n, airbnbs_n),
+    names_to = "accom_type",
+    values_to = "count"
+  )
+```
+
+lets make a plot
+
+```{r}
+violin <- accom_long %>%
+  ggplot(aes(x = accom_type, 
+             # number
+             y = count, 
+             # hotels or airbnb 
+             fill = accom_type)) +
+  geom_violin(trim = FALSE, 
+              color = "grey30", 
+              alpha = 0.8) +
+  scale_fill_brewer(palette = "Pastel1") +
+  labs(
+    title = "",
+    x = "",
+    y = "",
+    fill = "black"
+  ) +
+  # change the labels from the column names to..
+scale_x_discrete(labels = c("hotels_n" = "Hotels", 
+                            "airbnbs_n" = "Airbnbs"))+
+  theme_minimal(base_size = 13)+
+  theme(
+    # no legend
+    legend.position = "none",
+    # all text to black
+    text = element_text(color = "black"),         # set all text to black
+    axis.text = element_text(color = "black"),    # axis tick labels
+    axis.title = element_text(color = "black"),   # axis titles (if used)
+    plot.title = element_text(color = "black")    # title (if used)
+  )
+```
+
+Here is the grid package, we:
+<p>
+plot our map (tm2)<p>
+then “print” over the study area map and violin plot with the x and y controlling placement on the page.<p>
+save the plot by<p>
+
+```{r}
+library(grid)
+
+# Open PNG device
+png("prac5_data/3_facet.png", width = 8, height = 6, units="in", res = 300)
+
+tm2
+print(tm4, vp = viewport(x=0.68, y= 0.25, width = 0.3, height = 0.35))
+print(violin, vp = viewport(x=0.67, y= 0.83, width = 0.25, height = 0.35))
+
+
+# Close device
+dev.off()
+```
+
+
+
+
+
+
+
+
+
