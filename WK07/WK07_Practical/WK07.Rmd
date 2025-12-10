@@ -1,0 +1,43 @@
+---
+title: "WK07_Pracatical"
+output: html_document
+date: "2025-11-18"
+---
+Spatial Autocorrelation
+Morans I, LISA, and friends
+
+This week my question might be Are the values (in this case the density of blue plaques) similar (or dissimilar) across the wards of London
+
+```{r}
+library(here)
+library(janitor)
+library(sf)
+library(tidyverse)
+#read the ward data in
+LondonWards <- st_read(here::here("DATA","statistical-gis-boundaries-london","ESRI", "London_Ward.shp")) %>% 
+    st_transform(.,27700)
+```
+```{r}
+LondonWardsMerged <- st_read(here::here("DATA",                                      "statistical-gis-boundaries-london", 
+                                        "ESRI",
+                                        "London_Ward_CityMerged.shp"))%>%
+  st_transform(.,27700)
+```
+```{r}
+WardData <- read_csv("https://data.london.gov.uk/download/f33fb38c-cb37-48e3-8298-84c0d3cc5a6c/772d2d64-e8c6-46cb-86f9-e52b4c7851bc/ward-profiles-excel-version.csv",
+                    locale = locale(encoding = "latin1"),
+                     na = c("NA", "n/a")) %>% 
+  clean_names()
+
+LondonWardsMerged <- LondonWardsMerged %>% 
+  left_join(WardData, 
+            by = c("GSS_CODE" = "new_code"))%>%
+  dplyr::distinct(GSS_CODE, .keep_all = T)%>%
+  dplyr::select(GSS_CODE, ward_name, average_gcse_capped_point_scores_2014)
+```
+```{r}
+#have a look to check that it's 
+#in the right projection
+st_crs(LondonWardsMerged)
+```
+

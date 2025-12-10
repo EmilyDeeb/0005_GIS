@@ -1,0 +1,737 @@
+# Spatial descriptive statistics
+
+## Learning outcomes
+
+By the end of this practical you should be able to:
+
+1. Load, manipulate and interpret raster layers
+1. Observe and critique different descriptive data manipulation methods and outputs
+
+## Homework
+
+Outside of our scheduled sessions you should be doing around 12 hours of extra study per week. Feel free to follow your own GIS interests, but good places to start include the following:
+
+::: {.infobox .assignment data-latex="{note}"}
+**Exam**
+
+Each week we will provide a short task to test your knowledge, these should be used to guide your study for the final exam.
+
+The task is to manipulate some raster data and produce some descriptive statistics. Climatic models fed into the latest Intergovernmental Panel on Climate Change (IPCC), the models are divided into Shared Socioeconomic Pathways known as SSPs, ranging from [SSP1](https://view.es-doc.org/?renderMethod=name&project=cmip6&type=cim.2.designing.NumericalExperiment&client=esdoc-url-rewrite&name=ssp126) (lots of mitigation and adaption) to [SSP5](https://view.es-doc.org/?renderMethod=name&project=cmip6&type=cim.2.designing.NumericalExperiment&client=esdoc-url-rewrite&name=ssp126) (fossil fuel development). The [Carbon Brief explainer](https://www.carbonbrief.org/explainer-how-shared-socioeconomic-pathways-explore-future-climate-change) has more information on the scenarios. 
+
+For any country in the World produce descriptive statistics that show the difference in maximum temperature for key cities between SSP1 and SSP5 for the years 2081-2100, using any model and resolution.
+
+* [WorldClim future projections](https://www.worldclim.org/data/cmip6/cmip6_clim2.5m.html)
+* [Country outlines](https://gadm.org/data.html)
+* [World city points](https://hub.arcgis.com/datasets/esri::world-cities/explore?location=3.049068%2C-178.464838%2C1.71)
+
+:::
+
+::: {.infobox .note data-latex="{note}"}
+**Reading**
+
+This week: 
+
+* [Chapter 5 "Descriptive statistics"](https://learningstatisticswithr.com/book/descriptives.html) from Learning statistics with R: A tutorial for psychology students and other beginners by Navarro (2019)
+
+* [Exploratory data analysis: using colour and layout for comparison](https://www.roger-beecham.com/comp-sds/class/04-class/) by Beecham (2021).
+
+* [Chapter 7 "Reprojecting Geographic Data"](https://geocompr.robinlovelace.net/reproj-geo-data.html) from Geocomputation with R by Lovelace, Nowosad and Muenchow (2022).
+
+**Watching**
+
+* [Hadley Wickham's Keynote from the European Molecular Biology Laboratory (EMBL)](https://www.youtube.com/watch?v=9YTNYT1maa4). This will be the same for a few weeks.
+
+* [Can you make an accurate map by SciShow](https://www.youtube.com/embed/8I_VpC6IuJs)
+
+Remember this is just a starting point, explore the [reading list](https://rl.talis.com/3/ucl/lists/139FBAF8-DACD-60FB-8BDC-E9C9E09BA885.html?lang=en-GB&login=1), practical and lecture for more ideas.
+:::
+
+## Recommended listening `r emo::ji("headphones")`
+
+Some of these practicals are long, take regular breaks and have a listen to some of our fav tunes each week.
+
+[Andy](https://open.spotify.com/album/2P63KJNeC3DwaLpw8KHYqE). Oh Wonder, from London, an alt-pop duo according to Wikipedia. I just really like their music. Was due to see them in December in London, but it's been postponed. Ultralife is their first album and the one i prefer, tracks 2-4 are where it's at! 
+
+[Adam](https://open.spotify.com/album/4hEKRyUeVXejefnsvKYERB?si=FSgLYASmTh6lLNIcKXqtjg) OK, this week it's the 21st Century's answer to Shakespear - the man who provided the soundtrack to countless post-club 'back-to-your-house?' early mornings in my youth. Yes, straight outta Brum (via Brixton), he's only gone and penned a bunch of awesome new tracks almost 20 years after he first burst out of his bedroom studio. It's only flippin' Mike Skinner. You're listening to the Streets!
+
+## Introduction 
+
+This practical is composed of three parts. To start with we're going to explore projection systems in more detail. In the second part we will load some global raster data into R. In the final part we extract data points (cities and towns) from this data and generate some descriptive statistics and histograms. 
+
+## Part 1 projections
+
+Projections systems are mathematical formulas that specify how our data is represented on a map. These can either be call geographic coordiate reference systems or projected coordinate reference systems. The former  treats data as a sphere and the latter as a flat object. You might come across phrases such as a resolution of 5 minutes or a resolution of 30 metres, which can be used to establish what kind of projection system has been used. Let me explain...
+
+A minute type of resolution (e.g. 5 minute resolution) is a geographic reference system that treats the globe as if it was a sphere divided into 360 equal parts called degrees (which are angular units). Each degree has 60 minutes and each minute has 60 seconds. Arc-seconds of latitude (horizontal lines in the globe figure below) remain almost constant whilst arc-seconds of longitude (vertical lines in the globe figure below) decrease in a trigonometric cosine-based fashion as you move towards the Earth's poles...
+
+```{r echo=FALSE,  out.width="49%", fig.align='center', cache=FALSE, fig.cap="Latitude and Longitude. Source: [ThoughtCo.](https://www.thoughtco.com/degree-of-latitude-and-longitude-distance-4070616)"}
+knitr::include_graphics('prac3_images/arcseconds.jpg')
+```
+
+
+This causes problems as you increase or decrease latitude the longitudinal lengths alter...For example at the equator (0°, such as Quito) a degree is 111.3 km whereas at 60° (such as Saint Petersburg) a degree is 55.80 km  ...
+
+**In contrast** a projected coordinate system is defined on a flat, two-dimensional plane (through projecting a spheroid onto a 2D surface) giving it constant lengths, angles and areas...
+
+
+```{r vectorplots, fig.cap="Illustration of vector (point) data in which location of London (the red X) is represented with reference to an origin (the blue circle). The left plot represents a geographic CRS with an origin at 0° longitude and latitude. The right plot represents a projected CRS with an origin located in the sea west of the South West Peninsula. Source: [Lovelace et al. (2019) section 2.2](https://geocompr.robinlovelace.net/spatial-class.html)", out.width="49%", fig.show='hold', echo=FALSE, cache=FALSE}
+knitr::include_graphics(c("prac3_images/vector_lonlat.png","prac3_images/vector_projected.png"))
+```
+
+Knowing this, if we want to conduct analysis locally (e.g. at a national level) or use metric (e.g. kilometres) measurements we need to be able to change the projection of our data or "reproject" it. Most countries and even states have their own projected coordinate reference system such as British National Grid in the above example...Note how the origin (0,0) is has moved from the centre of the Earth to the bottom South West corner of the UK, which has now been ironed (or flattened) out.
+
+::: {.infobox .warning data-latex="{note}"}
+
+**Projection rules**
+
+Units are angular (e.g. degrees, latitude and longitude) or the data is global = Geographic coordinate reference system
+
+Units are linear (e.g. feet, metres) or data is at a local level (e.g. national, well the last one is not always true, but likely) = Projected coordinate reference system.
+:::
+
+You might hear some key words about projections that could terrify you! Let's break them down:
+
+* Ellipsoid (or spheroid) = size of shape of the Earth (3d)
+* Datum = contains the point relationship (where the origin (0,0) of the map is) between a Cartesian coordinates (flat surface) and Earth's surface. They can be local or geocentric (see below). They set the origin, the scale and orientation of the Coordiante Reference System (CRS).
+* Local datum = changes the Ellipsoid to align with a certain location on the surface (e.g. BNG that uses the OSGB36 datum). A local datum is anything that isn't the centre of the Earth.
+* Geocentric datum =  the centre is equal to the Earth's centre of gravity (e.g. WGS84).
+* Geodetic datum = global datum (see above for datum meaning) for representing features (e.g. points and polygons) on earth
+* Geodesy (from which we get Geodetic) = measuring Earth's shape and features (e.g. gravity field). 
+* Coordinate reference system (CRS) = Formula that defines how the 2D map (e.g. on your screen or a paper map) relates to the 3D Earth. Sometimes called a spatial Reference System (SRS). It also stores the datum information.
+
+::: {.infobox .tip data-latex="{note}"}
+
+**Take home message**
+
+When you do analysis on multiple datasets make sure they are all use the same Coordiante Reference System.
+
+If it's local (e.g. city of country analysis) then use a local projected CRS where possible.
+:::
+
+### Changing projections
+
+#### Vector
+
+Until now, we’ve not really considered how our maps have been printed to the screen. Later on in the practical we will explore gridded temperature in Australia, as we will need an outline of Australia let's use that as an example here:
+
+1. First, we need to source and load a vector of Australia. Go to: https://gadm.org/download_country.html and download the GeoPackage
+
+1. Once we've downloaded the `.gpkg` let's see what is inside it with `st_layers()`...
+
+```{r, message=FALSE, cache=FALSE}
+library(sf)
+library(here)
+st_layers(here("prac3_data", "gadm41_AUS.gpkg"))
+```
+
+1. Then read in the GeoPackage layer for the whole of Australia (layer ending in 0)
+
+```{r, cache=FALSE}
+library(sf)
+Ausoutline <- st_read(here("prac3_data", "gadm41_AUS.gpkg"), 
+                      layer='ADM_ADM_0')
+```
+
+You can check that the coordinate reference systems of  ```sf ``` or  ```sp ``` objects using the print function:
+
+```{r, cache=FALSE}
+print(Ausoutline)
+```
+The coordinates stored in the ```geometry``` column of your ```sf``` object contain the information to enable points, lines or polygons to be drawn on the screen. You can see that our `Ausoutline` is a multipolygon and every point within the polygon will have coordinates that are in a certain reference system, here Geodetic CRS:  WGS 84. The geodetic means geographic, if it was a projected coordiante reference system it would say projected CRS..like the week 1 data of the London Boroughs said...`## Projected CRS: OSGB 1936 / British National Grid`
+
+#### WGS84
+
+The World Geodetic System 84 (WGS84 - last revised in 1984) is one of the most common global projection systems, used in nearly all GPS devices. However there are many versions of WGS84, some geographic and some projected coordinate reference systems. 
+
+**3D globe**
+
+* GPS devices and point data sets often use the Geographic version (EPSG code 4326), **usually referred to just as WGS84**
+* Google Earth uses the Geographic version as it is a 3D globe (EPSG code 4326)
+
+::: {.infobox .tip data-latex="{note}"}
+
+In GIS if you add a layer that is 3D (e.g. in WGS84) it will map it on the 2D screen! But how? It takes the latitude and longitude values and maps them as planar coordinates. This means it linearly maps 3D points to a 2D plane....some people might refer to this as "unprojected" but i would say that it has a geographic coordinate reference system.
+
+```{r planar, fig.align='center',fig.cap="Planar projections. Source: [Wikipedia (2023) ](https://en.wikipedia.org/wiki/Planar_projection)", out.width="30%", fig.show='hold', echo=FALSE, cache=FALSE}
+knitr::include_graphics("prac3_images/150px-Axonometric_projection.svg.png")
+```
+
+:::
+
+
+**Flat**
+
+* Google Maps / Carto / Bing / Open street map use Web Mercator, Google Web Mercator, Spherical Mercator, WGS 84 Web Mercator or **WGS 84/Pseudo-Mercator** which is a projected coordinate reference system (EPSG code 3857). It is a variant of the Mercator map projection. 
+* The WGS 1984 world Mercator projection is a projected coordinate reference system following the Mercator map transformation (EPSG code 3395)
+
+The projected versions will have units of meters and the geographic versions units of degrees.
+
+In the rare occasion some data was collected in a Geographic coordinate reference system other than WGS84, you might find that the points / polygons won't line up with data in WGS84. This is because different Geographic coordinate reference systems use different ellipsoids (shape / size of Earth) and/or datums (the origin point (0,0), typically they use Earth's centre of gravity). To make them match you need to transform a dataset. That said QGIS will project 'on the fly' meaning if you add layers with a different CRS it will make them appear the same on the screen (changing the projection live or 'on the fly'). It won't change the CRS of the data itself though, you have to do that manually. 
+
+An example of another Geographic coordinate reference systems is the North American 1983 Datum (NAD83) that uses a different ellipsoid (longer by 0.21mm compared to WGS84), it also just has reference points on the North America plate (that moves 1-2cm a year), WGS84 has them all over the world.
+
+This same logic applies for projected coordinate references systems that could be different, as they use a different origin and the projected coordinate reference system still contains the geographic one, the projected part tells the computer how to draw the shape.
+
+#### Proj4
+
+Whilst we were able to identify the CRS of our layer using `print` another alternative is to find the `proj4` string. A `proj4` string is meant to be a compact way of identifying a coordinate reference system. Let's extract ours...
+
+```{r}
+library(sf)
+st_crs(Ausoutline)$proj4string
+```
+
+> “Well that’s clear as mud!” I hear you cry! Yes, not obvious is it!
+
+The proj4-string basically tells the computer where on the earth to locate the coordinates that make up the geometries in your file and what distortions to apply (i.e. if to flatten it out completely etc.) It's composed of a list of parameters separated by a `+`. Here are projection `proj` uses latitude and longitude (so it's a geographic not projected CRS). The `datum` is WGS84 that uses Earth's centre mass as the coordinate origin (0,0). 
+
+The [Coordiante systems in R chapter by Gimond (2019)](https://mgimond.github.io/Spatial/coordinate-systems-in-r.html#understanding-the-proj4-coordinate-syntax) provides much more information on Proj4. However, i'd advise trying to use EPSG codes, which we come onto next.
+
+1. Sometimes you can download data from the web and it doesn’t have a CRS. If any boundary data you download does not have a coordinate reference system attached to it (NA is displayed in the coord. ref section), this is not a huge problem --- it can be added afterwards by adding the proj4string to the file or just assigning an EPSG code.
+
+To find the proj4-strings for a whole range of different geographic projections, use the search facility at http://spatialreference.org/ or http://epsg.io/.
+
+#### EPSG
+
+Now, if you can store a whole proj4-string in your mind, you must be some kind of savant (why are you doing this course? you could make your fortune as a card-counting poker player or something!). The rest of us need something a little bit more easy to remember and for coordinate reference systems, the saviour is the European Petroleum Survey Group (EPSG) --- (naturally!). Now managed and maintained by the [International Association of Oil and Gas producers](http://www.epsg.org/) --- EPSG codes are short numbers represent all coordinate reference systems in the world and link directly to proj4 strings. We saw these last week in the [Making some maps] section.
+
+The EPSG code for the WGS84 World Geodetic System (usually the default CRS for most spatial data) is 4326 --- http://epsg.io/4326
+
+1. If our Australian outline didn't have a spatial reference system, we could have just set it using `st_set_crs()`
+
+```{r, cache=FALSE, warning=FALSE, message=FALSE}
+Ausoutline <- Ausoutline %>%
+  st_set_crs(., 4326)
+```
+
+Or, more concisely...but remember this is only useful if there is no CRS when you load the data.
+
+```{r, cache=FALSE, warning=FALSE, message=FALSE, eval=TRUE}
+#or more concisely
+Ausoutline <- st_read(here("prac3_data", "gadm41_AUS.gpkg"), 
+                      layer='ADM_ADM_0') %>% 
+  st_set_crs(4326)
+```
+
+**Normally** if a layer has a missing CRS, it's WGS84. But check for any metadata that might list it.
+
+#### Reprojecting your spatial data
+
+Reprojecting your data is something that you might have to (or want to) do, on occasion. Why? Well, one example might be if you want to measure the distance of a line object, or the distance between two polygons. This can be done far more easily in a projected coordinate system  (where the units are measured in metres) than it can a geographic coordinate system such as WGS84 (where the units are degrees).
+
+**However** for generating maps in packages like ```leaflet```, your maps will  need to be in WGS84, rather than a projected (flat) reference system .
+
+1. So once your data has a coordinates system to work with, we can re-project or transform to anything we like. For SF objects, like our outline of Australia it’s carried out using ```st_transform```. Here we are changing from WGS84 to [GDA94](https://epsg.io/3112), which is a local CRS for Australia and has the EPSG code 3112....
+
+```{r, cache=FALSE}
+AusoutlinePROJECTED <- Ausoutline %>%
+  st_transform(.,3112)
+
+print(AusoutlinePROJECTED)
+```
+
+In the SF object, you can compare the values in the geometry column with those in the original file to look at how they have changed...
+
+You might also encounter an `SP` object from the `sp` package. In this case i'd advise just transforming the `sp` object to `sf` and changing the projection....this was covered last week..but it's here too...
+
+```{r, cache=FALSE}
+#From sf to sp
+AusoutlineSP <- Ausoutline %>%
+  as(., "Spatial")
+
+#From sp to sf
+AusoutlineSF <- AusoutlineSP %>%
+  st_as_sf()
+
+```
+
+If you are still a bit confused by coordinate reference systems then **stop** and take some time to have a look at the resources listed here. It is very important to understand projection systems.
+
+This is the best resources I've come across explaining coordinate reference systems are:
+
+* [I hate coordinate systems](https://ihatecoordinatesystems.com/#mental-model)
+
+* [ESRI's coordinate systems and projections for beginners](https://communityhub.esriuk.com/geoxchange/2012/3/26/coordinate-systems-and-projections-for-beginners.html)
+
+* [The story of Mercator](https://mercator.tass.com/mercator-heritage)
+
+
+### WorldClim data 
+
+So far we've only really considered vector data. Within the rest of this practical we will explore some raster data sources and processing techniques. If you recall rasters are grids of cell with individual values. There are many, many possible sources to obtain raster data from as it is the data type used for the majority (basically all) of remote sensing data.
+
+We are going to use WorldClim data --- this is a dataset of free global climate layers (rasters) with a spatial resolution of between 1$km^2$ and 240$km^2$.
+
+1. Download the data from: https://www.worldclim.org/data/worldclim21.html
+
+1. Select any variable you want at the 5 minute second resolution. 
+
+1. Unzip and move the data to your project folder. Now load the data. We could do this individually....
+
+```{r ,message=FALSE}
+library(raster)
+library(terra)
+jan<-terra::rast(here("prac3_data", "wc2.1_5m_tavg_01.tif"))
+# have a look at the raster layer jan
+jan
+```
+
+1. Then have a quick look at the data, we can see it's again in the geographic projection of WGS84.
+
+```{r, cache=FALSE}
+plot(jan)
+```
+
+To reproject a raster the whole grid must be recomputed (for a vector is was just the individual coordinates of the shapes), and the attributes then reestimated to the new grid. To do this we have to use `project()` from the `terra` package. This is a new(ish) package and function, it still accepts Proj4 strings in the first example below, but also accepts the much easier to deal with spatial references. I have tested some EPSG and ESRI references from [Spatial reference](https://spatialreference.org/ref/?search=Mollweide).
+
+Now we can actually see some data...here is a quick example of using the Mollweide projection saved to a new object. The Mollweide projection retains area proportions whilst compromising accuracy of angle and shape 
+
+```{r cache=FALSE, warning=FALSE, message=FALSE}
+# set the proj 4 to a new object
+
+pr1 <- terra::project(jan, "+proj=moll +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+plot(pr1)
+
+```
+Now back to WGS84.....
+
+
+```{r cache=FALSE, warning=FALSE, message=FALSE}
+pr1 <- pr1 %>%
+  terra::project(., "+proj=longlat +datum=WGS84 +no_defs +type=crs")
+plot(pr1)
+```
+
+**Note** this long string is the PROJ4 for WGS1984. In the past we could just specify "EPSG:4326" instead. However now we must find the PROJ4 on the [EPSG website](https://epsg.io/27700)
+
+
+### Data loading
+
+Ok, projections over. Let's move forward with the practical...
+
+1. A better and more efficient way is to firstly list all the files stored within our directory with `dir_info()` from the `fs` pacakge, then use `dplyr` in conjunction with `str_detect()` from `stringr` to search for filenames containing `tif`. Finally just select the paths.
+
+1. But let's firstly explore what `dir_info()` does...
+
+```{r, cache=FALSE}
+# look in our folder, find the files that end with .tif and 
+library(fs)
+dir_info("prac3_data/") 
+```
+
+Essentially it just gets the details you would normally see in the file explorer..however, we can use this data with `dplyr` to select the data we actually want. Now be careful! the function `select()` exists both within the `dplyr` and `raster` package so to make sure you use the right one `dplyr::select` forces `select` from `dplyr`.
+
+```{r}
+library(tidyverse)
+listfiles<-dir_info("prac3_data/") %>%
+  filter(str_detect(path, ".tif")) %>%
+  dplyr::select(path)%>%
+  pull()
+
+#have a look at the file names 
+listfiles
+```
+
+Here, we're also using `pull()` from `dplyr` which is the same as the `$` often used to extract columns as in the next stage the input must be filenames as characters (nothing else like a column name).
+
+1. Then load all of the data straight into a SpatRaster. A SpatRaster is a collection of raster layers with the same spatial extent and resolution.
+
+```{r, cache=FALSE}
+worldclimtemp <- listfiles %>%
+  terra::rast()
+  
+#have a look at the raster stack
+worldclimtemp
+```
+
+In the stack you'll notice that under dimensions there are 12 layers (nlyr). The stack has loaded the 12 months of average temperature data for us in order. 
+
+1. To access single layers within the stack:
+
+```{r, cache=FALSE}
+
+# access the january layer
+worldclimtemp[[1]]
+
+```
+
+1. We can also rename our layers within the stack:
+
+```{r, cache=FALSE}
+month <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+names(worldclimtemp) <- month
+
+```
+
+Last week we used `rename()` from the `dplyr` package, however, this isn't yet available for raster data `r emo::ji("frowning_face")`
+
+1. Now to get data for just January use our new layer name
+
+```{r, cache=FALSE}
+worldclimtemp$Jan
+```
+
+### Raster location
+
+1. Using a raster stack we can extract data with a single command!! For example let's make a dataframe of some sample sites --- Australian cities/towns.
+
+```{r, cache=FALSE}
+site <- c("Brisbane", "Melbourne", "Perth", "Sydney", "Broome", "Darwin", "Orange", 
+          "Bunbury", "Cairns", "Adelaide", "Gold Coast", "Canberra", "Newcastle", 
+          "Wollongong", "Logan City" )
+lon <- c(153.03, 144.96, 115.86, 151.21, 122.23, 130.84, 149.10, 115.64, 145.77, 
+         138.6, 153.43, 149.13, 151.78, 150.89, 153.12)
+lat <- c(-27.47, -37.91, -31.95, -33.87, 17.96, -12.46, -33.28, -33.33, -16.92, 
+         -34.93, -28, -35.28, -32.93, -34.42, -27.64)
+#Put all of this inforamtion into one list 
+samples <- data.frame(site, lon, lat, row.names="site")
+# Extract the data from the Rasterstack for all points 
+AUcitytemp<- terra::extract(worldclimtemp, samples)
+```
+
+1. Add the city names to the rows of AUcitytemp
+
+::: {.infobox .tip data-latex="{note}"}
+When we extract data from a raster with a point or polygon it is termed **zonal statistics** in GIS - we want to get some statistics from the zone (point / polygon) for the area that is over the raster.
+:::
+
+
+```{r, cache=FALSE}
+Aucitytemp2 <- AUcitytemp %>% 
+  as_tibble()%>% 
+  add_column(Site = site, .before = "Jan")
+```
+
+## Part 2 descriptive statistics
+
+Descriptive (or summary) statistics provide a summary of our data, often forming the base of quantitative analysis leading to inferential statistics which we use to make inferences about our data (e.g. judegements of the probability that the observed difference between two data sets is not by chance) 
+
+```{r echo=FALSE, out.width = "450pt", fig.align='center', cache=FALSE, fig.cap="Summary statistics. Source: [Allison Horst data science and stats illustrations](https://github.com/allisonhorst/stats-illustrations)"}
+knitr::include_graphics('allisonhorst_images/summary_statistics.png')
+```
+
+### Data preparation 
+
+1. Let's take Perth as an example. We can subset our data either using the row name:
+
+```{r, cache=FALSE}
+Perthtemp <- Aucitytemp2 %>%
+  filter(site=="Perth")
+```
+
+1. Or the row location:
+
+```{r, cache=FALSE, eval=FALSE}
+Perthtemp <- Aucitytemp2[3,]
+```
+
+### Histogram
+
+A histogram lets us see the frequency of distribution of our data. This will vary based on the data that you have downloaded. 
+
+1. Make a histogram of Perth's temperature. The tibble stored the data as double and the base `hist()` function needs it as numeric..
+
+```{r, cache=FALSE}
+hist(as.numeric(Perthtemp))
+```
+
+Remember what we're looking at here. The ```x``` axis is the temperature and the ```y``` is the frequency of occurrence. 
+
+There seems to be an outlier with this plot as we haven't removed the columns we don't need - look in the `Perthtemp` tibble and you will see an ID of 3 which is plotted above! We will solve this next...
+
+1. That's a pretty simple histogram, let's improve the aesthetics a bit. 
+
+```{r, cache=FALSE}
+library(tidyverse)
+#define where you want the breaks in the historgram
+userbreak<-c(8,10,12,14,16,18,20,22,24,26)
+
+# remove the ID and site columns
+Perthtemp <- Aucitytemp2 %>%
+  filter(site=="Perth")
+
+t<-Perthtemp %>%
+ dplyr::select(Jan:Dec)
+
+  hist((as.numeric(t)), 
+     breaks=userbreak, 
+     col="red", 
+     main="Histogram of Perth Temperature", 
+     xlab="Temperature", 
+     ylab="Frequency")
+```
+
+1. Check out the histogram information R generated
+
+```{r warning=FALSE, fig.show='hide', cache=FALSE}
+histinfo <- as.numeric(t) %>%
+  as.numeric()%>%
+  hist(.)
+
+histinfo
+```
+Here we have:
+
+* breaks --- the cut off points for the bins (or bars), we just specified these
+* counts --- the number of cells in each bin
+* midpoints --- the middle value for each bin
+* density --- the density of data per bin
+
+### Using more data
+
+This was still a rather basic histogram, what if we wanted to see the distribution of temperatures for the whole of Australia in Jan (from averaged WorldClim data) as opposed to just our point for Perth. Here, we will use the outline of Australia we loaded earlier..
+
+Check the layer by plotting the geometry...we could do this through...
+
+```{r, cache=FALSE, warning=FALSE, message=FALSE}
+plot(Ausoutline$geom)
+```
+
+But as the `.shp` is quite complex (i.e. lots of points) we can simplify it first with the `st_simplify()` function. It's good practice that when you load data into R you check to see what it looks like...Here the argument `dTolerance` controls the level of generalisation in the units of the map, you can also set `preserveTopology` to TRUE or FALSE, when true it means that polyongs aren't removed and holes in polygons are retained.  
+
+```{r, cache=FALSE, warning=FALSE, message=FALSE}
+
+AusoutSIMPLE <- Ausoutline %>%
+  st_simplify(., dTolerance = 1000) %>%
+  st_geometry()%>%
+  plot()
+
+```
+
+This should load quicker, but for 'publication' or 'best' analysis (i.e. not just demonstrating or testing) i'd recommend using the real file to ensure you don't simplify a potentially important variable. 
+
+1. Next, set our map extent (where we want to clip the data to) to the outline of Australia then crop our WorldClim dataset to it.
+
+**HOWEVER**, we need to make sure that both of our layers are in the same coordinate reference system when we combine them...so..
+
+```{r, cache=FALSE}
+print(Ausoutline)
+#this works nicely for rasters
+crs(worldclimtemp)
+```
+
+Perfect! Now let's continue...
+
+```{r, cache=FALSE}
+Austemp <- Ausoutline %>%
+  # now crop our temp data to the extent
+  terra::crop(worldclimtemp,.)
+
+# plot the output
+plot(Austemp)
+
+```
+
+You'll notice that whilst we have the whole of Australia the raster hasn't been perfectly clipped to the exact outline....the crop here just specifies an extent box that will cover the whole of the shape. 
+
+1. If want to just get raster data within the outline of the shape use trhge `mask()`function which uses a cookie cutter of the raster with the vector layer:
+
+```{r, cache=FALSE}
+exactAus<-terra::mask(Austemp, Ausoutline)
+```
+
+You could also run this using the original worldclimtemp raster, however, it may take some time. I'd recommend cropping to the extent first. 
+1. Let's re-compute our histogram for Australia in March. We could just use hist like we have done before. We can either subset using the location (we know March is third in the raster).
+
+```{r, cache=FALSE}
+#subset using the known location of the raster
+hist(exactAus[[3]], col="red", main ="March temperature")
+```
+
+However we have a bit more control with ```ggplot()```...
+
+### Histogram with ggplot
+
+1. We need to make our raster into a data.frame to be compatible with ```ggplot2```, using a dataframe or tibble
+
+```{r, cache=FALSE}
+exactAusdf <- exactAus %>%
+  as.data.frame()
+```
+
+```{r, warning=FALSE, message=FALSE, cache=FALSE}
+library(ggplot2)
+# set up the basic histogram
+gghist <- ggplot(exactAusdf, 
+                 aes(x=Mar)) + 
+  geom_histogram(color="black", 
+                 fill="white")+
+  labs(title="Ggplot2 histogram of Australian March temperatures", 
+       x="Temperature", 
+       y="Frequency")
+# add a vertical line to the hisogram showing mean tempearture
+gghist + geom_vline(aes(xintercept=mean(Mar, 
+                                        na.rm=TRUE)),
+            color="blue", 
+            linetype="dashed", 
+            size=1)+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+How about plotting multiple months of temperature data on the same histogram 
+
+1. As we did in practical 2, we need to put our variable (months) into a one column using ```pivot_longer()```. Here, we are saying select columns 1-12 (all the months) and place them in a new column called `Month` and their values in another called `Temp`
+
+```{r, cache=FALSE}
+squishdata<-exactAusdf%>%
+  pivot_longer(
+  cols = 1:12,
+  names_to = "Month",
+  values_to = "Temp"
+)
+```
+1. Then subset the data, selecting two months using `filter()` from `dplyr`
+
+```{r, cache=FALSE}
+twomonths <- squishdata %>%
+  # | = OR
+  filter(., Month=="Jan" | Month=="Jun")
+```
+
+1. Get the mean for each month we selected, remember `group_by()` and `summarise()` from last week?
+
+```{r, cache=FALSE, messages=FALSE, warnings=FALSE}
+
+meantwomonths <- twomonths %>%
+  group_by(Month) %>%
+  summarise(mean=mean(Temp, na.rm=TRUE))
+
+meantwomonths
+```
+
+1. Select the colour and fill based on the variable (which is our month). The intercept is the mean we just calculated, with the lines also based on the coloumn variable.
+
+```{r message=FALSE, warning=FALSE, cache=FALSE}
+ggplot(twomonths, aes(x=Temp, color=Month, fill=Month)) +
+  geom_histogram(position="identity", alpha=0.5)+
+  geom_vline(data=meantwomonths, 
+             aes(xintercept=mean, 
+                 color=Month),
+             linetype="dashed")+
+  labs(title="Ggplot2 histogram of Australian Jan and Jun
+       temperatures",
+       x="Temperature",
+       y="Frequency")+
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+> **Note** how i adjusted the title after i selected the theme, if i had done this before the theme defaults would have overwritten my command.
+
+1. Have you been getting an annoying error message about bin size and non-finate values? Me too!...Bin size defaults to 30 in ```ggplot2``` and the non-finate values is referring to lots of NAs (no data) that we have in our dataset. In the code below i've:
+
+* dropped all the NAs with `drop_na()`
+
+* made sure that the Month column has the levels specified, which will map in descending order (e.g. Jan, Feb, March..)
+
+* selected a bin width of 5 and produced a faceted plot...
+
+```{r fig.height=10, fig.height=6, cache=FALSE}
+
+data_complete_cases <- squishdata %>%
+  drop_na()%>% 
+  mutate(Month = factor(Month, levels = c("Jan","Feb","Mar",
+                                          "Apr","May","Jun",
+                                          "Jul","Aug","Sep",
+                                          "Oct","Nov","Dec")))
+
+# Plot faceted histogram
+ggplot(data_complete_cases, aes(x=Temp, na.rm=TRUE))+
+  geom_histogram(color="black", binwidth = 5)+
+  labs(title="Ggplot2 faceted histogram of Australian temperatures", 
+       x="Temperature",
+       y="Frequency")+
+  facet_grid(Month ~ .)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Does this seem right to you? Well...yes. It shows that the distribution of temperature is higher (or warmer) in the Australian summer (Dec-Feb) than the rest of the year, which makes perfect sense. 
+
+How about an interactive histogram using ```plotly```...
+
+1. See if you can understand what is going on in the code below. Run each line separately.
+
+```{r, message=FALSE, warning=FALSE, cache=FALSE}
+library(plotly)
+# split the data for plotly based on month
+
+jan <- squishdata %>%
+  drop_na() %>%
+  filter(., Month=="Jan")
+
+jun <- squishdata %>%
+  drop_na() %>%
+  filter(., Month=="Jun")
+
+# give axis titles
+x <- list (title = "Temperature")
+y <- list (title = "Frequency")
+
+# set the bin width
+xbinsno<-list(start=0, end=40, size = 2.5)
+
+# plot the histogram calling all the variables we just set
+ihist<-plot_ly(alpha = 0.6) %>%
+        add_histogram(x = jan$Temp,
+        xbins=xbinsno, name="January") %>%
+        add_histogram(x = jun$Temp,
+        xbins=xbinsno, name="June") %>% 
+        layout(barmode = "overlay", xaxis=x, yaxis=y)
+
+ihist
+```
+This format of code where you set lots of varaibles then call them within a plot, package or fuction is sometihng you should become more familiar with as it's considerd good practice. If you were to go on and produce multiple plots using the same legends / aesthetics you only ahve to set them once. 
+
+Ok so enough with the histograms...the point is to think about how to best display your data both effectively and efficiently. 
+
+1. Let's change the pace a bit and do a quickfire of other descrptive statistics you might want to use...
+
+```{r message=FALSE, warning=FALSE, cache=FALSE}
+# mean per month
+meanofall <- squishdata %>%
+  group_by(Month) %>%
+  summarise(mean = mean(Temp, na.rm=TRUE))
+
+# print the top 1
+head(meanofall, n=1)
+
+# standard deviation per month
+sdofall <- squishdata %>%
+  group_by(Month) %>%
+  summarize(sd = sd(Temp, na.rm=TRUE))
+
+# maximum per month
+maxofall <- squishdata %>%
+  group_by(Month) %>%
+  summarize(max = max(Temp, na.rm=TRUE))
+
+# minimum per month
+minofall <- squishdata %>%
+  group_by(Month) %>%
+  summarize(min = min(Temp, na.rm=TRUE))
+
+# Interquartlie range per month
+IQRofall <- squishdata %>%
+  group_by(Month) %>%
+  summarize(IQR = IQR(Temp, na.rm=TRUE))
+
+# perhaps you want to store multiple outputs in one list..
+lotsofstats <- squishdata %>%
+  group_by(Month) %>%
+  summarize(IQR = IQR(Temp, na.rm=TRUE), 
+            max=max(Temp, na.rm=T))
+
+# or you want to know the mean (or some other stat) 
+#for the whole year as opposed to each month...
+
+meanwholeyear=squishdata %>%
+  summarize(meanyear = mean(Temp, na.rm=TRUE))
+  
+```
+## Feedback
+
+Was anything that we explained unclear this week or was something really clear...let us know using the [feedback form](https://forms.gle/w2GUDYc7tSavGy7r6). It's anonymous and we'll use the responses to clear any issues up in the future / adapt the material. 
+

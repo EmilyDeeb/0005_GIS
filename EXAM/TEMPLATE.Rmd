@@ -1,0 +1,393 @@
+---
+title: 'student number: 25127081'
+output:
+  html_document:
+    css: styles.css
+  word_document: default
+  pdf_document: default
+---
+
+#### **Originality declaration**  
+
+I, **Emily Deeb**, confirm that the work presented in this assessment is my own. Where information has been derived from other sources, I confirm that this has been indicated in the work.
+
+---
+
+#### **Part 01: Project Scope**
+
+**1.1 Background:**
+
+This section establishes the conceptual, policy, and contextual foundation for your analysis.  
+Explain:
+
+- The **topic area**, why it matters, and how it connects to broader urban, social, or demographic processes.
+- Relevant **local or global events**, such as policy reforms, economic shocks, inequality trends, or external disruptions.
+- Key **academic literature** explaining spatial processes (clustering, segregation, neighbourhood effects, environmental exposure, etc.).
+- Governmental or institutional **policies** shaping the phenomenon (e.g., eviction moratoria, planning regulations, public health interventions).
+- Any current **debates**, contradictions, or tensions shaping expectations.
+
+This should read as a *narrative*, not a bullet list. You are framing the problem for a government client, just as instructed in lecture slides.
+
+To reach the A band, ensure this background:  
+- contextualises the study area,  
+- identifies the scale of the issue,  
+- uses at least a couple of relevant sources or policy references,  
+- and prepares the reader for why spatial analysis is essential rather than optional.
+
+**1.2 Research Question, Aim, and Hypothesis:**
+
+- **Research Question**
+  
+  - Should be **spatial**, **specific**, **logical**, and **achievable** within the exam.
+  - Must flow directly from the background, and demonstrate understanding of the broader system.
+  - Needs to highlight the spatial mechanism you are investigating (e.g. clustering, differentiation, hotspots, spatial dependence).
+
+- **Research Aim**
+  
+  - A broad statement of what the report intends to achieve, aligned with the RQ.
+  - Should echo the policy or analytic need identified in the background.
+
+- **Research Hypothesis**
+  
+  - A clear directional or relational prediction (e.g., “higher X is associated with higher Y”).  
+  - Include the **null hypothesis** (no relationship / random distribution).
+  - Make sure the hypothesis is measurable and testable with the methods you will use.
+
+  A-band requires creativity + grounding in literature/policy; ensure your RQ demonstrates both.
+
+**1.3 Data:**
+
+**1.3.1 Data Source and Governance:**
+
+Explain:
+
+- Who collects the dataset  
+- Why it exists  
+- How frequently it is updated  
+- Data accuracy, known biases, or reporting gaps  
+- Spatial units represented (points, polygons, rasters)
+
+Also briefly acknowledge:
+
+- potential political or bureaucratic biases in collection  
+- differences in reporting practices across space  
+- and how these limitations might shape results.
+
+**1.3.2 Data Structure and Variables:**
+
+- Discuss:
+
+  - Core variables relevant to your topic  
+  - Unique identifiers needed for joins  
+  - Temporal coverage and its relevance  
+  - CRS information (and any inconsistencies)  
+  - Geographic boundaries and whether they make sense for your analysis
+
+- Spatial considerations:
+
+  - **CRS**: Are layers misaligned? Do we need to project?  
+  - **Boundary validity**: Are polygons meaningful for your RQ?  
+  - **Physical constraints**: rivers, highways, borough sizes  
+  - **MAUP implications**: is aggregation affecting interpretation?
+
+- Explain the spatial joins you will conduct:
+
+  - Attribute joins  
+  - Spatial filters  
+  - Intersection-based joins  
+  - Point-in-polygon relationships  
+
+- And justify the **unit of analysis**.
+
+Add one sentence explaining how these decisions affect your ability to interpret spatial clustering, autocorrelation, or local hotspots reliably.
+
+**1.3.3 Data Limitations:**
+
+- Identify:
+
+  - Missingness  
+  - Data displacement  
+  - Format inconsistencies  
+  - Temporal mismatch  
+  - Sampling bias  
+  - Aggregation issues  
+  - Null or NA values in key variables  
+
+- Briefly explain how these limitations influence interpretation.
+
+You must explicitly state how these limitations may propagate into later methods:  
+e.g. KDE smoothing of sparse data, instability in LISA, sensitivity of weight matrices, or misclassification of hotspots.
+
+**1.4 Assumptions & Methodological Limitations:**
+
+Before analysis, state your methodological constraints:
+
+- Assumptions about data accuracy  
+- CRS choices and the effect on distances  
+- Limitations specific to your chosen methods  
+- Sensitivity to bandwidth, spatial weights, or scale  
+- Ecological fallacy risk  
+- MAUP influence  
+- Time constraints restricting alternative methods (e.g., spatial regression)
+
+Explain how these may influence conclusions.
+
+To strengthen this:  
+Include 1–2 sentences on **why your results should be interpreted cautiously**, and where uncertainty may arise in your pipeline.
+
+**1.5 Analytical Approach:**
+
+A clear, structured plan (this is required in the mark scheme):
+
+1. **Load & explore data**  
+   Summaries, initial plots, CRS checks, field types.
+
+2. **Wrangling & joining**  
+   Projection, clipping, filtering, standardising data (count/area).
+
+3. **Point pattern analysis**  
+   KDE, quadrat, Ripley’s K, DBSCAN (if possible).
+
+4. **Spatial autocorrelation**  
+   Moran’s I, Geary’s C, Getis–Ord G, LISA, G*.
+
+5. **Weight matrix construction**  
+   Justification: Queen vs KNN, row-standardised vs binary.
+
+6. **Final outputs**  
+   Clean maps with interpretive captions.
+
+7. **Interpretation**  
+   Linking patterns back to the RQ + literature.
+
+8. **Reflection**  
+   Biases, assumptions, limitations, potential extensions.
+
+9. **Recommendations**  
+   Spatial evidence → policy action.
+
+Add one final sentence clarifying that the approach balances feasibility within exam constraints while still delivering robust and interpretable spatial insights.
+
+---
+
+#### **Part 02: Data Analysis**
+
+**2.1 Load Libraries:**
+
+Explain briefly why each package is needed (wrangling, spatial ops, plotting, autocorrelation).  
+Also remind the reader that **no work should be done from the console**, only inside the RMarkdown, as warned in exam guidance.
+
+**2.2 Clean and Process the Data:**
+
+- Normalisation (e.g., count per area)
+- Cleaning column types
+- Checking missingness
+- Making joins explicit
+- Creating analysis-ready subsets
+- Again, text before chunk explaining why.
+
+For A-band, explicitly mention:
+
+- why each step matters (e.g. CRS → distance accuracy; renaming columns → clarity; normalisation → comparability)  
+- and any issues encountered and resolved.
+
+**2.3 Summary of Key Initial Findings:**
+
+- Summaries and initial observations
+- Any early anomalies
+- Quick but meaningful exploratory plots
+- Notes on spatial imbalance
+
+This section should transition naturally into the spatial methods that follow.
+
+---
+
+#### **Part 03: Spatial Analysis:**
+
+**3.1 Spatial Joins & Spatial Descriptive Statistics:**
+
+Confirm:
+
+- All layers share a common CRS
+- Correct geographic clipping
+- Correct temporal filtering
+- Correct spatial operations (st_join, st_intersection, spatial filters)
+- Normalised variables
+- Only relevant fields kept
+
+Add a sentence on how these steps reduce analytical bias and ensure that downstream methods behave correctly.
+
+**3.2 Detecting Spatial Patterns:**
+
+- **3.2.1 Point Pattern Analysis (PPA):**
+
+Explain:
+
+- Whether points show randomness, clustering, or regularity  
+- KDE for hotspot modelling  
+- Quadrat for testing departures from CSR  
+- Ripley’s K for distance-based clustering  
+- DBSCAN for density-based segmentation  
+
+Each method must be justified and its limitations acknowledged.
+
+To strengthen this section:  
+Include one or two “why this matters” statements tying PPA output back to policy or planning implications.
+
+**3.2.2 Spatial Autocorrelation:**
+
+- **Global Statistics:**
+
+  - Moran’s I: overall clustering of values  
+  - Geary’s C: more sensitive to neighbouring contrasts  
+  - Getis–Ord G: global hotspots/coldspots
+
+- **Local Statistics:**
+
+  - Local Moran’s I (LISA)  
+  - Local Getis–Ord G*
+
+Explain interpretation categories: HH, LL, HL, LH.
+
+Add one line:  
+These local statistics allow us to spatially diagnose risk, vulnerability, or concentration in a way global indicators cannot.
+
+- **Spatial Weight Matrix Rationale:**
+
+  - **Queen Contiguity:**  
+    - Border OR vertex adjacency  
+    - Good for irregular polygons  
+    - Uneven neighbour counts possible
+
+  - **KNN:**  
+    - Equal number of neighbours  
+    - Distance-based, not boundary-based  
+    - Can link across rivers/highways
+
+  - **Row-Standardised Weights:**  
+    - Each row sums to 1  
+    - Corrects for unequal neighbour counts
+
+  - **Binary Weights:**  
+    - Equal treatment for all neighbours  
+    - Can exaggerate influence of polygons with many neighbours
+
+Add 2–3 sentences on *why your chosen matrix best reflects the spatial process* (e.g., diffusion vs adjacency vs distance decay).
+
+---
+
+**Comparison of Spatial Analysis Methods**
+
+| Method | Brief Summary | What It Is Used For / What It Tells Us | What the Statistic Implies | Limitations |
+|--------|---------------|------------------------------------------|-----------------------------|-------------|
+| **Kernel Density Estimation (KDE)** | Smooths point data into a continuous density surface using a kernel function. | Identifying hotspots, spatial intensity, and general concentration patterns. | High values = intense clustering; low values = sparse activity. | Sensitive to bandwidth; may smooth away meaningful variation; hard to compare across scales. |
+| **Quadrat Analysis** | Divides space into equal-sized quadrats and counts points in each to test randomness. | Detecting whether a point pattern is clustered, uniform, or random. | Variance–mean ratio: >1 clustering; =1 random; <1 regularity. | Depends on quadrat size & grid placement; subject to MAUP. |
+| **Ripley’s K Function** | Measures point clustering across spatial scales using cumulative distances. | Identifying clustering or dispersion at different distances. | K(d) > CSR envelope → clustering; K(d) < CSR → dispersion. | Computationally heavy; sensitive to study extent; ignores network distance (e.g., rivers, highways). |
+| **DBSCAN** (Density-Based Spatial Clustering of Applications with Noise) | Groups points into clusters based on dense neighbourhoods; labels sparse points as noise. | Identifying spatial clusters of arbitrary shape; detecting noise/outliers. | Core = dense clusters; noise = outlier points. | Requires tuning epsilon & minPts; sensitive to scale. |
+| **Moran’s I (Global)** | Global measure of spatial autocorrelation for continuous variables. | Testing whether high/low values cluster across the study area. | I > 0 clustering; I < 0 dispersion; I ≈ 0 random. | Global summary only; cannot locate clusters; sensitive to weights. |
+| **Geary’s C (Global)** | Measures local differences between neighbours; more sensitive to local variation than Moran’s I. | Detecting local dissimilarities; contrasts between adjacent units. | C < 1 positive autocorrelation; C > 1 negative; =1 random. | Still global; depends heavily on neighbourhood definition; harder to interpret. |
+| **Getis-Ord G (Global)** | Evaluates global presence of hotspots or coldspots. | Determining if high/low values are globally clustered. | High G → clustering of high values; Low G → clustering of low. | Cannot locate clusters; sensitive to global outliers; depends on spatial weights. |
+| **Local Moran’s I (LISA)** | Local version of Moran’s I; identifies specific clusters/outliers. | Mapping high–high, low–low clusters and spatial outliers. | Positive local I = local clusters; negative local I = outliers. | Multiple-testing issues; sensitive to weights; unreliable with sparse data. |
+| **Local Getis-Ord G\*** | Local hotspot statistic identifying significantly high or low values. | Identifying statistically significant hotspots and coldspots. | High G* z-score = hotspot; low G* = coldspot. | Sensitive to scale & weights; can inflate significance with many neighbours. |
+
+---
+
+#### **Part 04: Visualisation and Key Findings**
+
+**4.1 Summary of Key Findings:**
+
+- Direct answer to the RQ  
+- Highlight largest spatial inequalities  
+- Connect observed patterns to policy + literature  
+- Identify unexpected or contradictory results  
+- Explain spatial mechanisms (why patterns emerge where they do)
+
+**4.2 Presentation of Visualisations:**
+
+Ensure:
+
+- Interpretive captions (not descriptive)  
+- Clear legends, size, readability  
+- Limited number of final outputs (quality > quantity)  
+- Creative but appropriate cartographic choices  
+- Consistency across all maps (colours, scales, boundaries)
+
+**4.3 Evaluation Criteria:**
+
+- Outputs are clear, concise, and well-designed.  
+- Visualisations show creativity and effective communication.  
+- Evidence of independent learning and thoughtful selection.  
+- Quantity of charts is appropriate for the report length.
+
+---
+
+**Graph 01 - Evictions per year |**  
+The analysis below shows summed evictions per year from Data Frame 3.0 (ev_year_counts).
+
+> ##### **Summary Graph 01:**  
+Eviction events decrease slightly from 2017 to 2019, with a dramatic drop in 2020. This decline directly correlated to the COVID-19 eviction freeze, which halted most executions across New York City.  
+This matters to the report because we can see that 2020 alone cannot be treated as “normal” eviction activity.  
+Using 2017–2019 provides needed context: the neighbourhood eviction footprint must be analysed throughout those years leading to 2020 to understand the pattern.
+
+---
+
+#### **Part 05: Reflection & Recommendations**
+
+**5.1 Recap & Interpretation:**
+
+- Bring together the full narrative  
+- Compare to literature and theory  
+- Discuss plausible mechanisms behind patterns  
+- Identify contradictions and explain them  
+- Assess whether your findings answer the RQ fully or partially
+
+**5.2 Policy Recommendations:**
+
+Should be:
+
+- Targeted  
+- Evidence-based  
+- Feasible  
+- Aware of political and spatial constraints  
+- Linked clearly to your results  
+
+Include at least one short paragraph explaining trade-offs or risks of misinterpretation.
+
+**5.3 Study Limitations:**
+
+Cover:
+
+- Data quality  
+- Methodological sensitivities  
+- Spatial weights  
+- MAUP + ecological fallacy  
+- CRS, geometry distortions  
+- Temporal or spatial omissions  
+- Uncertainty in local statistics  
+- Computational constraints
+
+**5.4 Future Work:**
+
+Suggest:
+
+- Alternative datasets  
+- Spatial regressions (SAR, SEM, GWR)  
+- Different spatial units  
+- More granular temporal analysis  
+- Alternative weight matrices  
+- Incorporating socio-economic covariates  
+- Validating results with supplementary data sources
+
+**5.5 Evaluation Criteria:**
+
+- Discussion is engaging, reflective, and critically aware.  
+- Clear linkage to relevant literature or policy debates.  
+- Shows understanding of implications, caveats, and broader context.
+
+---
+
+#### **Part 06: Citations**
+
+**[1]** Structural inequalities and housing instability  
+Office of the New York State Comptroller. *New Yorkers in Need: The Housing Insecurity Crisis.* February 2024.  
+https://www.osc.ny.gov/reports/new-yorkers-need-housing-insecurity-crisis

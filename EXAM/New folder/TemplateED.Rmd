@@ -1,0 +1,230 @@
+---
+title: 'student number: 25127081'
+output:
+  html_document:
+    css: styles.css
+  word_document: default
+  pdf_document: default
+---
+
+#### **Originality declaration**  
+
+I, [**Emily Deeb**], confirm that the work presented in this assessment is my own. Where information has been derived from other sources, I confirm that this has been indicated in the work.
+
+---
+
+#### **Part 01: Project Scope**
+
+**1.1 Background:**
+
+- literature review and summary of key issues
+- Consideration of relevant polices and recent developments
+
+**1.2 Research Question:**
+
+- Criteria:
+  - Relevant and linked to the task but creative
+  - Logical and flows from the background
+  - Specific and well-reasoned
+  - Realistic and appropriately scoped
+  
+
+- Focus on central question that you are trying to answer:
+
+  - **Research Question:** Central question to that you will try to answer (e.g. What has been the impact of the UK sugar tax on obesity levels in London wards?)
+
+  - **Research Aim:** Is a broad statement of intent that you will try and achieve (e.g. This research will evaluate the impact of the 2018 Soft Drinks Levy (commonly know as the sugar tax) on obesity levels in London wards. )
+
+  - **Research Hypothesis:** A specific statement to predict the relationship between variables. (e.g. Socio-economic [or environmental] variables can be used to predict Graffiti occurrence at the census tract level. Null hypothesis = they can’t)
+
+**1.3 Data:**
+
+**1.3.1** Where the data is from and who collects and processes and reports the data
+
+**1.3.2** What are the key variables and fields present in the data that is useful given existing literature
+
+  - Identify unique join fields
+  - Variables of interest
+  - Specific geographic considerations for the area: 
+    - What is the CRS the data is in, do we need to undertake any spatial transformations
+    - Do the boundaries make sense for the analysis
+    - Are there physical features that might impact the analysis
+    - What is the relative size of shapes - how does this affect the spatial weight matrix chosen
+  - Explain what type of joins to be undertaken (i.e. spatial filter - points or rasters within study area, unique ID join)
+  - What is a suitable spatial unit of analysis and why is this appropriate for the question
+
+**1.3.3** What are some limitations or assumptions with the data:
+
+  - Fields that are in the wrong format, not spatially referenced.
+  - Processing applied or collection methodology that might have a bias
+  -Missing data or NA values
+
+**1.4 Assumptions & Limitations:**
+
+- Justification of assumptions made about data collection and accuracy
+- Methodology limitations specific to combination of methods and data
+- Limitations to scope of project given time available and data available
+
+**1.5 Approach:**
+
+- Broad steps taken to understand and evaluate data
+- Broad plan to study the variables present in the literature.
+- Justification why the chosen methods might be appropriate for the question. Why is this method relevant for the area that I have been asked to analyse.
+
+---
+
+#### **Part 02: Data Analysis**
+
+**2.1 Load Libraries**
+
+**2.2 Read in and Setup Data**
+
+**2.3 Clean and Process the Data**
+
+**2.4 Summary of Key Findings**
+
+---
+
+#### **Part 03: Spatial Analysis**
+
+**3.1 Spatial Joins and Spatial Descriptive Statistics**
+- Correct spatial operations, correct joins, correct CRS, data is normalized, final table only contains relevant columns.
+
+- Check and ensure layers are projected to a common CRS
+
+  - EPSG:4326 (WGS 84) - default CRS for most global datasets
+  - Projected CRS: EPSG:27700 (London), EPSG:26918 (NYC), EPSG:26910 (San Francisco) EPSG:28992 (Amsterdam)
+
+- Ensure appropriate clipping of spatial data for extent of study
+- Ensure filtering of data for appropriate period of analysis
+
+**3.2 Detecting spatial patterns | Examining autocorrelation | Explaining spatial patterns**
+
+**3.2.1 Point Pattern Analysis (PPP)**
+
+- Are the points distributed randomly, or is there a pattern (uniform or clustered)?
+- Useful because it allows comparison of a random expected model to observed patterns.
+- Properties are fixed (present or not), but space or location can vary.
+
+**3.2.2 Spatial Autocorrelation**
+
+- Measures how similar or dissimilar values assigned to geographic units are across space.
+- When moving from points to spatially continuous observations, we must consider the **modifiable areal unit problem (MAUP)** — different aggregations → different outcomes.
+- Defining scale and neighborhood structure is crucial.
+- If neighboring features have more similar values than all features globally, the pattern is clustered.
+- Local versions (e.g., Local Getis–Ord G*) evaluate a feature and its neighbors to identify local hotspots/coldspots.
+
+  **Rationale for Spatial Weight Matrix**
+
+  **Relationship considerations**
+
+  - **Queen Contiguity**
+
+    - Neighbors share a border *or* a vertex.
+    - Good for irregular polygons (boroughs, census tracts).
+    - Assumes spatial influence through any shared boundary.
+    - Number of neighbors varies depending on geometry.
+  
+  - **K-Nearest Neighbors (KNN)**
+
+    - Neighbors defined by the *k* closest units.
+    - Equal number of neighbors for each observation.
+    - Best when spatial interaction is distance-based, not administrative.
+    - Can link areas across physical barriers (e.g., rivers).
+
+  **Weight Considerations**
+
+  - **Row Standardized Weights**
+
+    - Each row sums to 1; influence distributed equally among neighbors.
+    - Corrects for unequal neighbor counts.
+    - Makes comparisons across units more meaningful.
+    - May dilute influence in highly connected areas.
+
+  - **Binary / Global Weights**
+
+    - Assigns equal weight (e.g., 1) to each neighbor.
+    - Reflects absolute adjacency without adjustment.
+    - Can overemphasize units with many neighbors and underweight those with few.
+    
+**Comparison of Spatial Analysis Methods**
+
+| Method | Brief Summary | What It Is Used For / What It Tells Us | What the Statistic Implies | Limitations |
+|--------|---------------|------------------------------------------|-----------------------------|-------------|
+| **Kernel Density Estimation (KDE)** | Smooths point data into a continuous density surface using a kernel function. | Identifying hotspots, spatial intensity, and general concentration patterns. | High values = intense clustering; low values = sparse activity. | Sensitive to bandwidth; may smooth away meaningful variation; hard to compare across scales. |
+| **Quadrat Analysis** | Divides space into equal-sized quadrats and counts points in each to test randomness. | Detecting whether a point pattern is clustered, uniform, or random. | Variance–mean ratio: >1 clustering; =1 random; <1 regularity. | Depends on quadrat size & grid placement; subject to MAUP. |
+| **Ripley’s K Function** | Measures point clustering across spatial scales using cumulative distances. | Identifying clustering or dispersion at different distances. | K(d) > CSR envelope → clustering; K(d) < CSR → dispersion. | Computationally heavy; sensitive to study extent; ignores network distance (e.g., rivers, highways). |
+| **DBSCAN** (Density-Based Spatial Clustering of Applications with Noise) | Groups points into clusters based on dense neighbourhoods; labels sparse points as noise. | Identifying spatial clusters of arbitrary shape; detecting noise/outliers. | Core = dense clusters; noise = outlier points. | Requires tuning epsilon & minPts; sensitive to scale. |
+| **Moran’s I (Global)** | Global measure of spatial autocorrelation for continuous variables. | Testing whether high/low values cluster across the study area. | I > 0 clustering; I < 0 dispersion; I ≈ 0 random. | Global summary only; cannot locate clusters; sensitive to weights. |
+| **Geary’s C (Global)** | Measures local differences between neighbours; more sensitive to local variation than Moran’s I. | Detecting local dissimilarities; contrasts between adjacent units. | C < 1 positive autocorrelation; C > 1 negative; =1 random. | Still global; depends heavily on neighbourhood definition; harder to interpret. |
+| **Getis-Ord G (Global)** | Evaluates global presence of hotspots or coldspots. | Determining if high/low values are globally clustered. | High G → clustering of high values; Low G → clustering of low. | Cannot locate clusters; sensitive to global outliers; depends on spatial weights. |
+| **Local Moran’s I (LISA)** | Local version of Moran’s I; identifies specific clusters/outliers. | Mapping high–high, low–low clusters and spatial outliers. | Positive local I = local clusters; negative local I = outliers. | Multiple-testing issues; sensitive to weights; unreliable with sparse data. |
+| **Local Getis-Ord G\*** | Local hotspot statistic identifying significantly high or low values. | Identifying statistically significant hotspots and coldspots. | High G* z-score = hotspot; low G* = coldspot. | Sensitive to scale & weights; can inflate significance with many neighbours. |
+
+
+---
+
+**3.1 Graph 01 - Evictions per year | ** The analysis below shows summed evictions per year from Data Frame 3.0 (ev_year_counts).
+
+> ##### **Summary Graph 01:**\ 
+Eviction events decrease slightly from 2017 to 2019, with a dramatic drop in 2020. This decline directly corrilated to the COVID-19 eviction freeze, which halted most executions across New York City.\ This matters to the report because we can see that 2020 alone cannot be treated as “normal” eviction activity.\ Using 2017–2019 provides needed context: the neighbourhoods evection footprint must be analyzed throughout thoose years leading to 2020 in order to reach a better understanding of the pattern.
+
+---
+
+---
+
+#### **Part 04: Visualization and Key Findings**
+
+**4.1 Summary of Key Findings:**
+- Summarise the main patterns revealed through the analysis.  
+- Explicitly link findings back to the core research question or policy problem.  
+- Highlight any unexpected or contradictory results.
+
+**4.2 Presentation of Visualizations:**
+- Use only the most relevant and informative charts.  
+- Ensure plot labels, axes, and captions are clear and self-explanatory.  
+- Demonstrate creativity and independent learning through the choice of visuals and techniques.  
+- Include a sensible number of figures for the report’s scope (avoid plot dumping).
+
+**4.3 Evaluation Criteria:**
+- Outputs are clear, concise, and well-designed.  
+- Visualisations show creativity and effective communication.  
+- Evidence of independent learning and thoughtful selection.  
+- Quantity of charts is appropriate for the report length.
+
+---
+
+#### **Part 05: Reflection and Recommendations**
+
+**5.1 Recap & Interpretation:**
+- Restate the key findings and explain how they address the research question.  
+- Critically compare results to existing literature and theoretical expectations.  
+- Discuss where your results align or diverge from known studies.
+
+**5.2 Policy Recommendations:**
+- Provide direct, actionable recommendations based on the findings.  
+- Consider implications for stakeholders, governance, or intervention design.  
+- Be explicit about how spatial evidence supports each recommendation.
+
+**5.3 Study Limitations:**
+- Data limitations (e.g., missingness, spatial resolution, temporal mismatch).  
+- Methodological constraints (weights matrices, scale, assumptions).  
+- Interpretation caveats (MAUP, ecological fallacy, model sensitivity).
+
+**5.4 Future Work:**
+- Suggest improvements for analysis, data collection, or modelling.  
+- Identify follow-up work that could strengthen or validate the findings.
+
+**5.5 Evaluation Criteria:**
+- Discussion is engaging, reflective, and critically aware.  
+- Clear linkage to relevant literature or policy debates.  
+- Shows understanding of implications, caveats, and broader context.
+
+---
+
+#### **Part 06: Citations**
+
+**[1]** Structural inequalities and housing instability
+Office of the New York State Comptroller. New Yorkers in Need: The Housing Insecurity Crisis. February 2024.
+https://www.osc.ny.gov/reports/new-yorkers-need-housing-insecurity-crisis
+

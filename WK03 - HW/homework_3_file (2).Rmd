@@ -1,0 +1,234 @@
+```{r}
+library(sf)
+library(here)
+library(janitor)
+library(tidyverse)
+library(terra)
+library(ggplot2)
+```
+
+Read in data
+
+```{r}
+spain <- sf::st_read(here("homework_3", "gadm41_ESP.gpkg"),
+                      layer='ADM_ADM_0')
+
+layers <- st_layers(here("homework_3", "gadm41_ESP.gpkg"))
+
+world_cities <- sf::st_read(here("homework_3", "World_Cities", "World_cities.shp"))
+
+ssp1 <-terra::rast(here("homework_3", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp126_2021-2040.tif"))
+
+ssp1_mean <- mean(ssp1)
+
+ssp5 <-terra::rast(here("homework_3", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp585_2021-2040.tif"))
+
+```
+
+filter cities
+
+```{r}
+
+spanish_cities <- world_cities %>%
+  janitor::clean_names()%>%
+  dplyr::filter(cntry_name=="Spain")
+
+
+#ssp_diff <- ssp5-ssp1
+```
+
+
+crop and mask rasters
+
+```{r}
+####ssp1
+
+spain_diff <- ssp1 %>%
+  # now crop our temp data to the extent
+  terra::crop(.,spain)
+
+exact_spain <- spain_diff %>%
+  terra::mask(.,spain)
+
+###ssp5
+
+spain_diff5 <- ssp5 %>%
+  # now crop our temp data to the extent
+  terra::crop(.,spain)
+
+exact_spain5 <- spain_diff5 %>%
+  terra::mask(.,spain)
+
+```
+
+subtract rasters
+
+```{r}
+
+#### sub
+diff_climate_model <- exact_spain5 - exact_spain 
+```
+
+rename and extract data from points
+
+```{r}
+month <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+names(diff_climate_model) <- month
+
+spain_city_diff<- terra::extract(diff_climate_model, spanish_cities)
+
+```
+
+
+Join the extracted data back to the point dataset...either this...
+
+```{r}
+spain_city_diff2 <- spanish_cities %>% 
+  add_column(spain_city_diffJan=spain_city_diff[,2])%>%
+  add_column(spain_city_diffFeb=spain_city_diff[,3])%>%
+  add_column(spain_city_diffMar=spain_city_diff[,4])%>%
+  add_column(spain_city_diffApril=spain_city_diff[,5])%>%
+  add_column(spain_city_diffMay=spain_city_diff[,6])%>%
+  add_column(spain_city_diffJune=spain_city_diff[,7])%>%
+  add_column(spain_city_diffJuly=spain_city_diff[,8])%>%
+  add_column(spain_city_diffAug=spain_city_diff[,9])%>%
+  add_column(spain_city_diffSept=spain_city_diff[,10])%>%
+  add_column(spain_city_diffOct=spain_city_diff[,11])%>%
+  add_column(spain_city_diffNov=spain_city_diff[,12])%>%
+  add_column(spain_city_diffDec=spain_city_diff[,13])
+
+```
+
+Or make a join ID column in the original point sf and use that to join...
+
+```{r}
+
+spanish_cities_join_ID <- spanish_cities %>%
+  # make a new column with first row as 1 and the number ends at the last row (e.g. last row 10 = id of 10)
+  dplyr::mutate(join_id= 1:n())
+```
+
+Now join
+
+```{r}
+
+spain_city_diff2 <- spanish_cities_join_ID%>%
+  dplyr::left_join(.,
+            spain_city_diff,
+             by = c("join_id" = "ID"))
+
+```
+
+Drop the geometry and make a facet plot of differences per month
+
+```{r}
+
+# extract just the months (jan - december) columns
+city_climate_diff <- spain_city_diff2 %>%
+  dplyr::select(c(,16:27))%>%
+  sf::st_drop_geometry(.)%>%
+  dplyr::as_tibble()
+
+#pivot the months longer
+tidy_city_diff <- city_climate_diff %>%
+  tidyr::pivot_longer(everything(), 
+               names_to="Months", 
+               values_to="temp_diff")
+
+# change the months to a factor column type (levels / ordered categories) this will be to facet
+facet_plot <- tidy_city_diff %>%
+  dplyr::mutate(Months = factor(Months, levels = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")))
+
+# Plot faceted histogram
+plot<-ggplot(facet_plot, 
+             # plot the temp data
+             aes(x=temp_diff, na.rm=TRUE))+
+  #plot with histogram
+  geom_histogram(color="black", binwidth = .1)+
+  labs(title="Ggplot2 faceted difference in climate scenarios of max temp", 
+       x="Temperature",
+       y="Frequency")+
+  # use the levels to facet
+  facet_grid(Months ~ .)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot
+
+```
+
+
+## Extra
+
+How about taking each climate scenario and plotting the distribution of max temp values for Spanish cities....
+
+```{r}
+
+####### extra analysis####when i assumed it was just a single year not months
+
+ssp1 <-terra::rast(here("homework_3", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp126_2021-2040.tif"))
+ssp2 <-terra::rast(here("homework_3", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp245_2021-2040.tif"))
+ssp3 <-terra::rast(here("homework_3", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp370_2021-2040.tif"))
+ssp5 <-terra::rast(here("homework_3", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp585_2021-2040.tif"))
+
+ssp1mean <- ssp1 %>%
+  terra::crop(.,spain)%>%
+  terra::mask(.,spain)%>%
+  mean(.)
+
+ssp2mean <- ssp2 %>%
+  terra::crop(.,spain)%>%
+  terra::mask(.,spain)%>%
+  mean(.)
+  
+ssp3mean <- ssp3 %>%
+  terra::crop(.,spain)%>%
+  terra::mask(.,spain)%>%
+  mean(.)
+  
+ssp5mean <- ssp5 %>%
+  terra::crop(.,spain)%>%
+  terra::mask(.,spain)%>%
+  mean(.)
+  
+spain_city_ssp1<- terra::extract(ssp1mean, spanish_cities)
+spain_city_ssp2<- terra::extract(ssp2mean, spanish_cities)
+spain_city_ssp3<- terra::extract(ssp3mean, spanish_cities)
+spain_city_ssp5<- terra::extract(ssp5mean, spanish_cities)
+
+spain_city3 <- spanish_cities %>% 
+  add_column(ssp1=spain_city_ssp1$mean)%>%
+  add_column(ssp2=spain_city_ssp2$mean)%>%
+  add_column(ssp3=spain_city_ssp3$mean)%>%
+  add_column(ssp5=spain_city_ssp5$mean)
+
+spain_city4 <- spain_city3 %>%
+  as_tibble()%>%
+  dplyr::select(city_name, ssp1, ssp2, ssp3, ssp5)%>%
+  pivot_longer(cols = 2:5,
+              names_to = "model",
+              values_to = "max_temp"
+  )
+
+violin <- ggplot(spain_city4, 
+                 aes(x=model, y=max_temp, fill=model)) + # fill=name allow to automatically dedicate a color for each group
+  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75))+
+  geom_point()
+#geom_jitter(height = 0, width = 0.1)
+
+box <- ggplot(spain_city4, aes(x=model, y=max_temp, fill=model)) + # fill=name allow to automatically dedicate a color for each group
+  geom_boxplot()+
+  theme_minimal()+
+  labs(
+    x="Model", 
+    y="Climate projection max tempearture")+
+  theme(legend.position = "none")
+
+violin
+box
+
+# we could also create a violin plot for the whole of spain
+# per model or use metro areas. 
+```
+
