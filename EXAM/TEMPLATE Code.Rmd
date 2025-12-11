@@ -1,0 +1,1146 @@
+---
+title: 'student number: 25127081'
+output:
+  html_document:
+    css: styles.css
+  word_document: default
+  pdf_document: default
+---
+
+#### **Originality declaration**  
+
+I, **Emily Deeb**, confirm that the work presented in this assessment is my own. Where information has been derived from other sources, I confirm that this has been indicated in the work.
+
+---
+
+#### **Part 01: Project Scope**
+
+
+**1.1 Background:**
+
+This section establishes the conceptual, policy, and contextual foundation for your analysis.  
+Explain:
+
+- The **topic area**, why it matters, and how it connects to broader urban, social, or demographic processes.
+- Relevant **local or global events**, such as policy reforms, economic shocks, inequality trends, or external disruptions.
+- Key **academic literature** explaining spatial processes (clustering, segregation, neighbourhood effects, environmental exposure, etc.).
+- Governmental or institutional **policies** shaping the phenomenon (e.g., eviction moratoria, planning regulations, public health interventions).
+- Any current **debates**, contradictions, or tensions shaping expectations.
+
+This should read as a *narrative*, not a bullet list. You are framing the problem for a government client, just as instructed in lecture slides.
+
+To reach the A band, ensure this background:  
+- contextualises the study area,  
+- identifies the scale of the issue,  
+- uses at least a couple of relevant sources or policy references,  
+- and prepares the reader for why spatial analysis is essential rather than optional.
+
+**1.2 Research Question, Aim, and Hypothesis:**
+
+- **Research Question**
+  
+  - Should be **spatial**, **specific**, **logical**, and **achievable** within the exam.
+  - Must flow directly from the background, and demonstrate understanding of the broader system.
+  - Needs to highlight the spatial mechanism you are investigating (e.g. clustering, differentiation, hotspots, spatial dependence).
+
+- **Research Aim**
+  
+  - A broad statement of what the report intends to achieve, aligned with the RQ.
+  - Should echo the policy or analytic need identified in the background.
+
+- **Research Hypothesis**
+  
+  - A clear directional or relational prediction (e.g., “higher X is associated with higher Y”).  
+  - Include the **null hypothesis** (no relationship / random distribution).
+  - Make sure the hypothesis is measurable and testable with the methods you will use.
+
+  A-band requires creativity + grounding in literature/policy; ensure your RQ demonstrates both.
+
+**1.3 Data:**
+
+**1.3.1 Data Source and Governance:**
+
+Explain:
+
+- Who collects the dataset  
+- Why it exists  
+- How frequently it is updated  
+- Data accuracy, known biases, or reporting gaps  
+- Spatial units represented (points, polygons, rasters)
+
+Also briefly acknowledge:
+
+- potential political or bureaucratic biases in collection  
+- differences in reporting practices across space  
+- and how these limitations might shape results.
+
+**1.3.2 Data Structure and Variables:**
+
+- Discuss:
+
+  - Core variables relevant to your topic  
+  - Unique identifiers needed for joins  
+  - Temporal coverage and its relevance  
+  - CRS information (and any inconsistencies)  
+  - Geographic boundaries and whether they make sense for your analysis
+
+- Spatial considerations:
+
+  - **CRS**: Are layers misaligned? Do we need to project?  
+  - **Boundary validity**: Are polygons meaningful for your RQ?  
+  - **Physical constraints**: rivers, highways, borough sizes  
+  - **MAUP implications**: is aggregation affecting interpretation?
+
+- Explain the spatial joins you will conduct:
+
+  - Attribute joins  
+  - Spatial filters  
+  - Intersection-based joins  
+  - Point-in-polygon relationships  
+
+- And justify the **unit of analysis**.
+
+Add one sentence explaining how these decisions affect your ability to interpret spatial clustering, autocorrelation, or local hotspots reliably.
+
+**1.3.3 Data Limitations:**
+
+- Identify:
+
+  - Missingness  
+  - Data displacement  
+  - Format inconsistencies  
+  - Temporal mismatch  
+  - Sampling bias  
+  - Aggregation issues  
+  - Null or NA values in key variables  
+
+- Briefly explain how these limitations influence interpretation.
+
+You must explicitly state how these limitations may propagate into later methods:  
+e.g. KDE smoothing of sparse data, instability in LISA, sensitivity of weight matrices, or misclassification of hotspots.
+
+**1.4 Assumptions & Methodological Limitations:**
+
+Before analysis, state your methodological constraints:
+
+- Assumptions about data accuracy  
+- CRS choices and the effect on distances  
+- Limitations specific to your chosen methods  
+- Sensitivity to bandwidth, spatial weights, or scale  
+- Ecological fallacy risk  
+- MAUP influence  
+- Time constraints restricting alternative methods (e.g., spatial regression)
+
+Explain how these may influence conclusions.
+
+To strengthen this:  
+Include 1–2 sentences on **why your results should be interpreted cautiously**, and where uncertainty may arise in your pipeline.
+
+**1.5 Analytical Approach:**
+
+A clear, structured plan (this is required in the mark scheme):
+
+1. **Load & explore data**  
+   Summaries, initial plots, CRS checks, field types.
+
+2. **Wrangling & joining**  
+   Projection, clipping, filtering, standardising data (count/area).
+
+3. **Point pattern analysis**  
+   KDE, quadrat, Ripley’s K, DBSCAN (if possible).
+
+4. **Spatial autocorrelation**  
+   Moran’s I, Geary’s C, Getis–Ord G, LISA, G*.
+
+5. **Weight matrix construction**  
+   Justification: Queen vs KNN, row-standardised vs binary.
+
+6. **Final outputs**  
+   Clean maps with interpretive captions.
+
+7. **Interpretation**  
+   Linking patterns back to the RQ + literature.
+
+8. **Reflection**  
+   Biases, assumptions, limitations, potential extensions.
+
+9. **Recommendations**  
+   Spatial evidence → policy action.
+
+Add one final sentence clarifying that the approach balances feasibility within exam constraints while still delivering robust and interpretable spatial insights.
+
+---
+
+#### **Part 02: Data Analysis**
+
+**2.1 Load Libraries and read files:**
+Explain briefly why each package is needed (wrangling, spatial ops, plotting, autocorrelation).  
+Also remind the reader that **no work should be done from the console**, only inside the RMarkdown, as warned in exam guidance.
+
+- Steps:
+  - Load Librares for Reading, Wrangling, Spatial Ops, Plotting, Autocorrelation; needed for the entire report
+  - Read CSV file and SHP file for Data Wraggling and Analysis $km^2$
+  
+**2.1.1** Load Libraries needed for the Report  
+```{r loadlibraries}
+# Load Required libraries
+library(sf)              # modern spatial vector data (points/lines/polygons, CRS, spatial ops)
+library(tidyverse)       # core data wrangling + plotting (dplyr, readr, tibble, etc.)
+library(tmap)            # thematic mapping for sf/raster (static + interactive maps)
+library(tmaptools)       # helper tools for tmap (basemaps, geocoding, bbox utilities)
+library(janitor)         # quick data cleaning (clean_names, tabulations, etc.)
+library(stringr)         # string/text handling (str_detect, str_replace, regex work)
+library(here)            # safe, project-root-based file paths (here("data", "file.csv"))
+library(raster)          # older raster package (still used, but being replaced by terra)
+library(terra)           # modern fast raster + vector grids (rast, crop, mask, project)
+library(classInt)        # create class breaks for choropleths (jenks, quantiles, etc.)
+library(ggplot2)         # general plotting (histograms, violins, geom_sf, etc.)
+library(grid)            # low-level graphics; used for custom layout and insets
+library(spatstat)        # point pattern analysis (ppp, Ripley’s K, quadrats, KDE)
+library(fpc)             # clustering methods; here for DBSCAN on point coords
+library(ggspatial)       # spatial helpers for ggplot (basemaps, north arrow, scalebar)
+library(colorblindcheck) # check palettes for colour-blind accessibility
+library(cols4all)        # big palette collection + GUI for choosing colour schemes
+
+```
+
+**2.1.2** Read Files and organize according to type 
+```{r readfiles}
+# read CSv
+HDI <- read_csv(here::here("homework_4", "HDR21-22_Composite_indices_complete_time_series.csv"),
+                       locale = locale(encoding = "latin1"),
+                       na = " ", skip=0)
+# Read SHP File
+shape <- st_read(here::here("homework_2",
+                            "Washington_Counties_with_Natural_Shoreline___washsh_area",
+                            "Washington_Counties_with_Natural_Shoreline___washsh_area.shp"))
+# OR
+world_cities <- sf::st_read(here("homework_3", "World_Cities", "World_cities.shp"))
+
+# Check Layers of GPKG
+layers <- st_layers(here("homework_3", "gadm41_ESP.gpkg"))
+# Read GPKG Via Layer
+spain <- sf::st_read(here("homework_3", "gadm41_ESP.gpkg"),
+                      layer='ADM_ADM_0')
+
+# Read Raster Layer
+jan<-terra::rast(here("prac3_data", "wc2.1_5m_tavg_01.tif"))
+# have a look at the raster layer jan
+jan
+```
+
+**2.1.3** Set Coordinates then Transform and project to Local Coordinates
+> Notes: Make Sure what units you are working on 
+
+```{r CheckCRS}
+# Check CRS 
+print(Ausoutline)
+# Do we have coordinates?
+# Is it an SF or SP
+```
+
+**2.1.4** Transform from Simple Project to Simple Feature Project 
+```{r SPSF}
+# You might also encounter an `SP` object from the `sp` package. In this case i'd advise just transforming the `sp` object to `sf` and changing the projection
+
+#From sf to sp
+AusoutlineSP <- Ausoutline %>%
+  as(., "Spatial")
+
+#From sp to sf
+AusoutlineSF <- AusoutlineSP %>%
+  st_as_sf()
+```
+
+**2.1.5** Set CRS and then Project
+> Notes: Mollweide projection saved to a new object. The Mollweide projection retains area proportions whilst compromising accuracy of angle and shape 
+
+```{r SetTransform}
+# Set Coordinates EPSG 4326 WGS84 (Global)
+Ausoutline <- Ausoutline %>%
+  st_set_crs(., 4326)
+
+# Transform the Sf into the local coordinates https://epsg.io/3112
+AusoutlinePROJECTED <- Ausoutline %>%
+  st_transform(.,3112)
+print(AusoutlinePROJECTED)
+
+# Project Raster
+pr1 <- pr1 %>%
+  terra::project(., "+proj=longlat +datum=WGS84 +no_defs +type=crs")
+plot(pr1)
+
+# Set CSV Coordinates 
+Airbnb <- Airbnb %>% 
+  st_as_sf(., coords = c("longitude", "latitude"), crs = 4326) %>%
+  st_transform(., 27700)
+
+```
+
+**2.1.6** Simplify Geom
+
+Check layer by plotting the geometry
+```{r Check_Layer}
+# lets plot and check layer
+plot(Ausoutline$geom)
+```
+
+Simplify the Shp file using st_simplify function
+Here the argument `dTolerance` controls the level of generalisation in the units of the map
+```{r Simplify_Geom}
+
+AusoutSIMPLE <- Ausoutline %>%
+  st_simplify(., dTolerance = 1000) %>%
+  st_geometry()%>%
+  plot()
+
+```
+
+
+**2.2 Clean and Process the Data:**
+
+Overall Goal: 
+
+This Process includes: 
+
+- Cleaning and organize column types
+- Checking and clean missing values
+- Normalization (e.g., count per area)
+- Making joins 
+- Creating analysis-ready subsets
+
+- why each step matters (e.g. CRS → distance accuracy; renaming columns → clarity; normalization → comparability)  
+- and any issues encountered and resolved.
+
+**2.2.1** Give me the Class for each column in order to evaluate if all values are the needed character
+```{r FirstCheck}
+# Check Class
+Datatypelist <- report %>% 
+  summarise_all(class) %>%
+  pivot_longer(everything(), 
+               names_to="All_variables", 
+               values_to="Variable_class")
+```
+> *Summary: Found that Blabla*
+
+
+**2.2.2** Make smaller data frame for needed analysis
+```{r Cleanandfilter}
+# Steps:
+# (1) Clean_names smaller case + with underscore
+# (2) Select only required columns
+# (3) Filter values Removing Multiple for county, and look only at schools and science class as well as all grades
+
+filterd_report <- report %>%
+  janitor::clean_names() %>%
+  select(county, organization_level, test_subject, count_met_standard, 
+         count_of_students_expected_to_test, grade_level)%>%
+  filter(county != "Multiple")%>%
+  filter(organization_level == "School")%>%
+  filter(test_subject == "Science")%>%
+  filter(grade_level=="All Grades")
+
+
+# filter based on key cities
+Worldcities2 <- Worldcities %>%
+  janitor::clean_names() %>%
+  filter(CNTRY_NAME=='United Kingdom'&
+           Worldcities$CITY_NAME=='Birmingham'|
+           Worldcities$CITY_NAME=='London'|
+           Worldcities$CITY_NAME=='Edinburgh')
+
+```
+
+```{r CleanandfilterCountryCode}
+library(countrycode)
+HDIcols<- HDI %>%
+  clean_names()%>%
+  select(iso3, country, gii_2019, gii_2010)%>%
+  mutate(difference=gii_2019-gii_2010)%>%
+  #not needed here as we can now use the country name...but see below
+  mutate(iso_code=countrycode(country, origin = 'country.name', destination = 'iso2c'))%>%
+  mutate(iso_code2=countrycode(iso3, origin ='iso3c', destination = 'iso2c'))
+
+```
+
+> *Summary: Found that Blabla*
+
+
+**2.2.3** Normalize the Data using count per county and not raw counts as it is misleading as they need to be evaluated with a standard unit
+```{r GroupandMutate_SUM+PERCENT}
+# Steps:
+# (1) Grouped by county for count
+# (2) Omit NA we dont want no values as the create a point without value
+# (3) Create column that is named total_county_met that is the sum of count_met_standard
+# (4) Create column total country to test which is the sum of count of students expected to test
+# (5) create column that calculates the percent of met vs to test
+
+county_only <- filterd_report %>% 
+  group_by(county)%>%
+  na.omit()%>%
+  summarise(total_county_met_standard=sum(count_met_standard),
+            total_county_to_test=sum(count_of_students_expected_to_test))%>%
+  mutate(percent_met_per_county=(total_county_met_standard/total_county_to_test)*100)
+
+```
+
+```{r GorupandSummarize}
+# we need to list the columns we want to keep in the summarise
+# for each group count the number of rows and store in a column called accomodation count.
+# if the df doesnt have geom then you are fine
+Hotels_sum <- Hotels %>%
+  group_by(., GSS_CODE, NAME)%>%
+  summarise(`Accomodation count` = n()) 
+# For Count it better to use st_contain and not this 
+```
+
+> *Summary: Found that Blabla*
+
+
+**2.2.4** Calculate Average in all of the STATE in order to compare later each COUNTY to the average state
+```{r calcAVERAGE}
+# Steps:
+# (1) Create new value (pull) that's named state_average which is the mean value of percent_met_per_county
+
+# Option 1
+state_average <- county_only%>%
+  summarise(state_average= mean(percent_met_per_county))%>%
+  pull()
+
+# Option 2
+state_average2 <- mean(county_only$percent_met_per_county)
+
+# Option 3
+state_average3 <- county_only%>%
+  select(percent_met_per_county)%>%
+  summarise(state_average=mean(percent_met_per_county))%>%
+  pull()
+
+```
+> *Summary: Found that Blabla*
+
+
+**2.2.5** Count the counties above or below state Average in order to understand which counties are in relation to the state average
+```{r calcABOVEANDBELLOW}
+# Steps:
+# (1) Create a dataframe that takes only the grouped county 
+# (2) Assign to each county a difference column that calculates if the county is above or below state average (negative vale = below)
+# (3) Round the difference_to_state column to the nearest whole number for accurate count
+# (4) Create a column named above_below that evaluates when the value is below avg. (negative) 
+
+county_only_above_below_state <- county_only %>%
+  mutate(difference_to_state=(percent_met_per_county-state_average))%>%
+    mutate(across(difference_to_state, ~ round(.x, 0)))%>%
+    mutate(above_below = case_when(difference_to_state<0 ~ "below",
+                                   difference_to_state>0 ~ "above",
+                                   difference_to_state==0 ~ "equal"
+                                   ))
+```
+> *Summary: Found that Blabla*
+
+
+**2.2.6** Join Cleaned Data frame to the county Polygon, for mapping and spatial analysis
+**Method:** left Join 
+> Notes: pure attribute join
+
+```{r LeftJoin}
+# Steps: 
+# (1) Organize Columns names for easier match with the data frame (similar columns)
+# (2) Left Join the data frame county_only_above_below_state by countylabe(SHP) and county(DF)
+joined_data <- shape %>% 
+  clean_names(.) %>%
+  left_join(., 
+            county_only_above_below_state,
+            by = c("countylabe" = "county"))
+```
+> *Summary: Found that Blabla*
+
+**Method:** Spatial Join
+> Notes: You have two sf objects. You want to join based on where things are, not what their IDs are.
+Result: one row per hotel, with borough columns added.
+> Problems: ⚠️ Problem for counts: after st_join(), a borough with zero hotels still appears once (just the polygon row), so group_by(borough) %>% summarise(n = n()) gives 1 instead of 0.
+
+**Method:** St_contains and St_within or st_equals
+> Notes: using st feature to see if st_contains(A, B) - Does A (boroughs) contain B (OSM)\
+Returns a list of boroughs (33 rows) and in each borough a list of hotels
+
+```{r st_join}
+# Default = st_intersects
+# st_join(points, polygons)
+
+# Explicit predicate
+# st_join(points, polygons, join = st_within)
+# st_join(polygons, points, join = st_contains)
+
+Hotels_with_borough <- st_join(OSM_hotels, Londonborough, join = st_within) # or st_contain or st_equals
+
+Hotels_with_borough
+
+```
+
+Count lengths ie count within column 
+```{r st_contain_length}
+
+Accomodation_contained <- Londonborough%>%
+  mutate(hotels_n = lengths(st_contains(., OSM)))%>%
+  mutate(airbnbs_n = lengths(st_contains(., Airbnbs)))
+
+```
+
+Or using drop Geom to count Stats and future histograms
+```{r GroupandSummarize+DropGeom}
+
+Hotels_stats <- Hotels_boro %>%
+  st_drop_geometry() %>%                  # drop hotel geometry for summarise
+  group_by(GSS_CODE, NAME) %>%
+  summarise(
+    n_hotels    = n(),                    # number of hotels *with data*
+    avg_price   = mean(price, na.rm = TRUE),
+    total_rooms = sum(rooms, na.rm = TRUE)
+  )
+
+```
+
+
+
+**2.2.7** Plot Map for initial Spatial Understanding using the normalized count of Above and below State Average
+```{r IntialPlot}
+# Steps:
+# (1) Set Mode for Plot
+# (2) Create bounding box using joined data geom points
+# (3) Set OSM as Background
+# (4) Use boundary Shape + OSM Map + Joined Data Polygons
+# (5) fill county by values above equal or below the state average
+# (6) Create a readable map 
+tmap_mode("plot")
+
+# Optional OSM basemap from the county bbox
+bbox_county <- joined_data %>% 
+  st_bbox() %>% 
+  tmaptools::read_osm(type = "osm", zoom = NULL)
+
+tm_shape(bbox_county) +
+  tm_rgb() +
+  tm_shape(joined_data) +
+  tm_polygons(
+    fill = "above_below",
+    fill.scale = tm_scale_categorical(
+      values = "brewer.bu_pu"
+    ),
+    fill_alpha = 0.5
+  ) +
+  tm_compass(position = c("left", "bottom"), type = "arrow") +
+  tm_scalebar(position = c("left", "bottom")) +
+  tm_layout(
+    main.title = "Counties above or below state average for science in all grades",
+    main.title.position = "center"
+  )
+```
+> *Summary: Found that Blabla the map is missing count per county just for understanding*
+
+
+**2.2.8:** Dealing with Rasters (Extra)
+```{r}
+# A better and more efficient way is to firstly list all the files stored within our directory with `dir_info()` from the `fs` pacakge, then use `dplyr` in conjunction with `str_detect()` from `stringr` to search for filenames containing `tif`. Finally just select the paths.
+
+# look in our folder, find the files that end with .tif and 
+library(fs)
+dir_info("prac3_data/") 
+
+# Locate tif
+# Here, we're also using `pull()` from `dplyr` which is the same as the `$` often used to extract columns as in the next stage the input must be filenames as characters (nothing else like a column name).
+listfiles<-dir_info("prac3_data/") %>%
+  filter(str_detect(path, ".tif")) %>%
+  dplyr::select(path)%>%
+  pull()
+
+#have a look at the file names 
+listfiles
+
+# Then load all of the data straight into a SpatRaster. A SpatRaster is a collection of raster layers with the same spatial extent and resolution.
+
+worldclimtemp <- listfiles %>%
+  terra::rast()
+  
+#have a look at the raster stack
+worldclimtemp
+
+# In the stack you'll notice that under dimensions there are 12 layers (nlyr). The stack has loaded the 12 months of average temperature data for us in order. 
+# To access single layers within the stack:
+
+# access the january layer
+worldclimtemp[[1]]
+
+# We can also rename our layers within the stack:
+
+month <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+names(worldclimtemp) <- month
+
+# Now to get data for just January use our new layer name
+
+worldclimtemp$Jan
+
+# Using a raster stack we can extract data with a single command!! For example let's make a dataframe of some sample sites --- Australian cities/towns.
+
+site <- c("Brisbane", "Melbourne", "Perth", "Sydney", "Broome", "Darwin", "Orange", 
+          "Bunbury", "Cairns", "Adelaide", "Gold Coast", "Canberra", "Newcastle", 
+          "Wollongong", "Logan City" )
+lon <- c(153.03, 144.96, 115.86, 151.21, 122.23, 130.84, 149.10, 115.64, 145.77, 
+         138.6, 153.43, 149.13, 151.78, 150.89, 153.12)
+lat <- c(-27.47, -37.91, -31.95, -33.87, 17.96, -12.46, -33.28, -33.33, -16.92, 
+         -34.93, -28, -35.28, -32.93, -34.42, -27.64)
+#Put all of this inforamtion into one list 
+samples <- data.frame(site, lon, lat, row.names="site")
+# Extract the data from the Rasterstack for all points 
+AUcitytemp<- terra::extract(worldclimtemp, samples)
+
+# Add the city names to the rows of AUcitytemp
+# turn to a DataFrame
+
+Aucitytemp2 <- AUcitytemp %>% 
+  as_tibble()%>% 
+  add_column(Site = site, .before = "Jan")
+
+
+```
+
+**2.3 Summary of Key Initial Findings:**
+
+- Summaries and Initial Observations:
+
+  - BLABLA
+  
+- Early Anomalies:
+
+  - BLABLA
+  
+- Plot Understanding:
+
+  - BLABLA
+
+- Next Steps According to Intial Findings:
+
+  - Notes on spatial imbalance
+  - Readings
+  - Literature
+  - Spatial Analysis
+  
+This section should transition naturally into the spatial methods that follow.
+
+---
+
+#### **Part 03: Spatial Analysis:**
+
+**3.1 Spatial Joins & Spatial Descriptive Statistics:**
+
+Confirm:
+
+- All layers share a common CRS
+- Correct geographic clipping
+- Correct temporal filtering
+- Correct spatial operations (st_join, st_intersection, spatial filters)
+- Normalised variables
+- Only relevant fields kept
+
+Add a sentence on how these steps reduce analytical bias and ensure that downstream methods behave correctly.
+
+**3.2 Descriptive Statistics:**
+> Raster: When we extract data from a raster with a point or polygon it is termed **zonal statistics** in GIS - we want to get some statistics from the zone (point / polygon) for the area that is over the raster.
+
+> General: Descriptive (or summary) statistics provide a summary of our data, often forming the base of quantitative analysis leading to inferential statistics which we use to make inferences about our data (e.g. judegements of the probability that the observed difference between two data sets is not by chance) 
+
+
+**3.2.1 Method:** Histogram
+> A histogram lets us see the frequency of distribution of our data. This will vary based on the data that you have downloaded. 
+> Requirments: 
+  - The base `hist()` function needs it as numeric
+
+Create simple Histogram to view outlines
+> Notes: BLABLA
+
+```{r histogram_simple}
+hist(as.numeric(Perthtemp))
+
+# There seems to be an outlier with this plot as we haven't removed the columns we don't need - look in the `Perthtemp` tibble and you will see an ID of 3 which is plotted above! We will solve this next
+```
+> *Summary: Found that Blabla*
+
+Create a Histogram with selected breaks
+> Notes: BLABLA
+
+```{r histogram_better}
+
+#define where you want the breaks in the historgram
+userbreak<-c(8,10,12,14,16,18,20,22,24,26)
+
+# remove the ID and site columns
+Perthtemp <- Aucitytemp2 %>%
+  filter(site=="Perth")
+
+t<-Perthtemp %>%
+ dplyr::select(Jan:Dec)
+
+  hist((as.numeric(t)), 
+     breaks=userbreak, 
+     col="red", 
+     main="Histogram of Perth Temperature", 
+     xlab="Temperature", 
+     ylab="Frequency")
+  
+```
+> *Summary: Found that Blabla*
+
+View histogram information
+> Notes: BLABLA
+
+```{r hint_info}
+# Check out the histogram information R generated
+# Here we have:
+# breaks --- the cut off points for the bins (or bars), we just specified these
+# counts --- the number of cells in each bin
+# midpoints --- the middle value for each bin
+# density --- the density of data per bin
+
+histinfo <- as.numeric(t) %>%
+  as.numeric()%>%
+  hist(.)
+
+histinfo
+```
+> *Summary: Found that Blabla*
+
+Check layer by plotting the geometry
+```{r Check_Layer}
+# lets plot and check layer
+plot(Ausoutline$geom)
+```
+
+Simplify the Shp file using st_simplify function
+Here the argument `dTolerance` controls the level of generalisation in the units of the map
+
+```{r Simplify_Geom}
+
+AusoutSIMPLE <- Ausoutline %>%
+  st_simplify(., dTolerance = 1000) %>%
+  st_geometry()%>%
+  plot()
+
+```
+
+This should load quicker, but for 'publication' or 'best' analysis (i.e. not just demonstrating or testing) i'd recommend using the real file to ensure you don't simplify a potentially important variable. 
+
+1. Next, set our map extent (where we want to clip the data to) to the outline of Australia then crop our WorldClim dataset to it.
+
+**HOWEVER**, we need to make sure that both of our layers are in the same coordinate reference system when we combine them...so..
+
+```{r, cache=FALSE}
+print(Ausoutline)
+#this works nicely for rasters
+crs(worldclimtemp)
+```
+
+Perfect! Now let's continue...
+
+```{r, cache=FALSE}
+Austemp <- Ausoutline %>%
+  # now crop our temp data to the extent
+  terra::crop(worldclimtemp,.)
+
+# plot the output
+plot(Austemp)
+
+```
+
+You'll notice that whilst we have the whole of Australia the raster hasn't been perfectly clipped to the exact outline....the crop here just specifies an extent box that will cover the whole of the shape. 
+
+1. If want to just get raster data within the outline of the shape use trhge `mask()`function which uses a cookie cutter of the raster with the vector layer:
+
+```{r, cache=FALSE}
+exactAus<-terra::mask(Austemp, Ausoutline)
+```
+
+You could also run this using the original worldclimtemp raster, however, it may take some time. I'd recommend cropping to the extent first. 
+1. Let's re-compute our histogram for Australia in March. We could just use hist like we have done before. We can either subset using the location (we know March is third in the raster).
+
+```{r, cache=FALSE}
+#subset using the known location of the raster
+hist(exactAus[[3]], col="red", main ="March temperature")
+```
+
+However we have a bit more control with ```ggplot()```...
+
+### Histogram with ggplot
+
+1. We need to make our raster into a data.frame to be compatible with ```ggplot2```, using a dataframe or tibble
+
+```{r, cache=FALSE}
+exactAusdf <- exactAus %>%
+  as.data.frame()
+```
+
+```{r, warning=FALSE, message=FALSE, cache=FALSE}
+library(ggplot2)
+# set up the basic histogram
+gghist <- ggplot(exactAusdf, 
+                 aes(x=Mar)) + 
+  geom_histogram(color="black", 
+                 fill="white")+
+  labs(title="Ggplot2 histogram of Australian March temperatures", 
+       x="Temperature", 
+       y="Frequency")
+# add a vertical line to the hisogram showing mean tempearture
+gghist + geom_vline(aes(xintercept=mean(Mar, 
+                                        na.rm=TRUE)),
+            color="blue", 
+            linetype="dashed", 
+            size=1)+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+How about plotting multiple months of temperature data on the same histogram 
+
+1. As we did in practical 2, we need to put our variable (months) into a one column using ```pivot_longer()```. Here, we are saying select columns 1-12 (all the months) and place them in a new column called `Month` and their values in another called `Temp`
+
+```{r, cache=FALSE}
+squishdata<-exactAusdf%>%
+  pivot_longer(
+  cols = 1:12,
+  names_to = "Month",
+  values_to = "Temp"
+)
+```
+1. Then subset the data, selecting two months using `filter()` from `dplyr`
+
+```{r, cache=FALSE}
+twomonths <- squishdata %>%
+  # | = OR
+  filter(., Month=="Jan" | Month=="Jun")
+```
+
+1. Get the mean for each month we selected, remember `group_by()` and `summarise()` from last week?
+
+```{r, cache=FALSE, messages=FALSE, warnings=FALSE}
+
+meantwomonths <- twomonths %>%
+  group_by(Month) %>%
+  summarise(mean=mean(Temp, na.rm=TRUE))
+
+meantwomonths
+```
+
+1. Select the colour and fill based on the variable (which is our month). The intercept is the mean we just calculated, with the lines also based on the coloumn variable.
+
+```{r message=FALSE, warning=FALSE, cache=FALSE}
+ggplot(twomonths, aes(x=Temp, color=Month, fill=Month)) +
+  geom_histogram(position="identity", alpha=0.5)+
+  geom_vline(data=meantwomonths, 
+             aes(xintercept=mean, 
+                 color=Month),
+             linetype="dashed")+
+  labs(title="Ggplot2 histogram of Australian Jan and Jun
+       temperatures",
+       x="Temperature",
+       y="Frequency")+
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+> **Note** how i adjusted the title after i selected the theme, if i had done this before the theme defaults would have overwritten my command.
+
+1. Have you been getting an annoying error message about bin size and non-finate values? Me too!...Bin size defaults to 30 in ```ggplot2``` and the non-finate values is referring to lots of NAs (no data) that we have in our dataset. In the code below i've:
+
+* dropped all the NAs with `drop_na()`
+
+* made sure that the Month column has the levels specified, which will map in descending order (e.g. Jan, Feb, March..)
+
+* selected a bin width of 5 and produced a faceted plot...
+
+```{r fig.height=10, fig.height=6, cache=FALSE}
+
+data_complete_cases <- squishdata %>%
+  drop_na()%>% 
+  mutate(Month = factor(Month, levels = c("Jan","Feb","Mar",
+                                          "Apr","May","Jun",
+                                          "Jul","Aug","Sep",
+                                          "Oct","Nov","Dec")))
+
+# Plot faceted histogram
+ggplot(data_complete_cases, aes(x=Temp, na.rm=TRUE))+
+  geom_histogram(color="black", binwidth = 5)+
+  labs(title="Ggplot2 faceted histogram of Australian temperatures", 
+       x="Temperature",
+       y="Frequency")+
+  facet_grid(Month ~ .)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Does this seem right to you? Well...yes. It shows that the distribution of temperature is higher (or warmer) in the Australian summer (Dec-Feb) than the rest of the year, which makes perfect sense. 
+
+How about an interactive histogram using ```plotly```...
+
+1. See if you can understand what is going on in the code below. Run each line separately.
+
+```{r, message=FALSE, warning=FALSE, cache=FALSE}
+library(plotly)
+# split the data for plotly based on month
+
+jan <- squishdata %>%
+  drop_na() %>%
+  filter(., Month=="Jan")
+
+jun <- squishdata %>%
+  drop_na() %>%
+  filter(., Month=="Jun")
+
+# give axis titles
+x <- list (title = "Temperature")
+y <- list (title = "Frequency")
+
+# set the bin width
+xbinsno<-list(start=0, end=40, size = 2.5)
+
+# plot the histogram calling all the variables we just set
+ihist<-plot_ly(alpha = 0.6) %>%
+        add_histogram(x = jan$Temp,
+        xbins=xbinsno, name="January") %>%
+        add_histogram(x = jun$Temp,
+        xbins=xbinsno, name="June") %>% 
+        layout(barmode = "overlay", xaxis=x, yaxis=y)
+
+ihist
+```
+This format of code where you set lots of varaibles then call them within a plot, package or fuction is sometihng you should become more familiar with as it's considerd good practice. If you were to go on and produce multiple plots using the same legends / aesthetics you only ahve to set them once. 
+
+Ok so enough with the histograms...the point is to think about how to best display your data both effectively and efficiently. 
+
+1. Let's change the pace a bit and do a quickfire of other descrptive statistics you might want to use...
+
+```{r message=FALSE, warning=FALSE, cache=FALSE}
+# mean per month
+meanofall <- squishdata %>%
+  group_by(Month) %>%
+  summarise(mean = mean(Temp, na.rm=TRUE))
+
+# print the top 1
+head(meanofall, n=1)
+
+# standard deviation per month
+sdofall <- squishdata %>%
+  group_by(Month) %>%
+  summarize(sd = sd(Temp, na.rm=TRUE))
+
+# maximum per month
+maxofall <- squishdata %>%
+  group_by(Month) %>%
+  summarize(max = max(Temp, na.rm=TRUE))
+
+# minimum per month
+minofall <- squishdata %>%
+  group_by(Month) %>%
+  summarize(min = min(Temp, na.rm=TRUE))
+
+# Interquartlie range per month
+IQRofall <- squishdata %>%
+  group_by(Month) %>%
+  summarize(IQR = IQR(Temp, na.rm=TRUE))
+
+# perhaps you want to store multiple outputs in one list..
+lotsofstats <- squishdata %>%
+  group_by(Month) %>%
+  summarize(IQR = IQR(Temp, na.rm=TRUE), 
+            max=max(Temp, na.rm=T))
+
+# or you want to know the mean (or some other stat) 
+#for the whole year as opposed to each month...
+
+meanwholeyear=squishdata %>%
+  summarize(meanyear = mean(Temp, na.rm=TRUE))
+  
+```
+
+
+
+
+
+
+
+
+
+
+**3.3 Detecting Spatial Patterns:**
+
+- **3.3.1 Point Pattern Analysis (PPA):**
+
+Explain:
+
+- Whether points show randomness, clustering, or regularity  
+- KDE for hotspot modelling  
+- Quadrat for testing departures from CSR  
+- Ripley’s K for distance-based clustering  
+- DBSCAN for density-based segmentation  
+
+Each method must be justified and its limitations acknowledged.
+
+To strengthen this section:  
+Include one or two “why this matters” statements tying PPA output back to policy or planning implications.
+
+**3.3.2 Spatial Autocorrelation:**
+
+- **Global Statistics:**
+
+  - Moran’s I: overall clustering of values  
+  - Geary’s C: more sensitive to neighbouring contrasts  
+  - Getis–Ord G: global hotspots/coldspots
+
+- **Local Statistics:**
+
+  - Local Moran’s I (LISA)  
+  - Local Getis–Ord G*
+
+Explain interpretation categories: HH, LL, HL, LH.
+
+Add one line:  
+These local statistics allow us to spatially diagnose risk, vulnerability, or concentration in a way global indicators cannot.
+
+- **Spatial Weight Matrix Rationale:**
+
+  - **Queen Contiguity:**  
+    - Border OR vertex adjacency  
+    - Good for irregular polygons  
+    - Uneven neighbour counts possible
+
+  - **KNN:**  
+    - Equal number of neighbours  
+    - Distance-based, not boundary-based  
+    - Can link across rivers/highways
+
+  - **Row-Standardised Weights:**  
+    - Each row sums to 1  
+    - Corrects for unequal neighbour counts
+
+  - **Binary Weights:**  
+    - Equal treatment for all neighbours  
+    - Can exaggerate influence of polygons with many neighbours
+
+Add 2–3 sentences on *why your chosen matrix best reflects the spatial process* (e.g., diffusion vs adjacency vs distance decay).
+
+---
+
+**Comparison of Spatial Analysis Methods**
+
+| Method | Brief Summary | What It Is Used For / What It Tells Us | What the Statistic Implies | Limitations |
+|--------|---------------|------------------------------------------|-----------------------------|-------------|
+| **Kernel Density Estimation (KDE)** | Smooths point data into a continuous density surface using a kernel function. | Identifying hotspots, spatial intensity, and general concentration patterns. | High values = intense clustering; low values = sparse activity. | Sensitive to bandwidth; may smooth away meaningful variation; hard to compare across scales. |
+| **Quadrat Analysis** | Divides space into equal-sized quadrats and counts points in each to test randomness. | Detecting whether a point pattern is clustered, uniform, or random. | Variance–mean ratio: >1 clustering; =1 random; <1 regularity. | Depends on quadrat size & grid placement; subject to MAUP. |
+| **Ripley’s K Function** | Measures point clustering across spatial scales using cumulative distances. | Identifying clustering or dispersion at different distances. | K(d) > CSR envelope → clustering; K(d) < CSR → dispersion. | Computationally heavy; sensitive to study extent; ignores network distance (e.g., rivers, highways). |
+| **DBSCAN** (Density-Based Spatial Clustering of Applications with Noise) | Groups points into clusters based on dense neighbourhoods; labels sparse points as noise. | Identifying spatial clusters of arbitrary shape; detecting noise/outliers. | Core = dense clusters; noise = outlier points. | Requires tuning epsilon & minPts; sensitive to scale. |
+| **Moran’s I (Global)** | Global measure of spatial autocorrelation for continuous variables. | Testing whether high/low values cluster across the study area. | I > 0 clustering; I < 0 dispersion; I ≈ 0 random. | Global summary only; cannot locate clusters; sensitive to weights. |
+| **Geary’s C (Global)** | Measures local differences between neighbours; more sensitive to local variation than Moran’s I. | Detecting local dissimilarities; contrasts between adjacent units. | C < 1 positive autocorrelation; C > 1 negative; =1 random. | Still global; depends heavily on neighbourhood definition; harder to interpret. |
+| **Getis-Ord G (Global)** | Evaluates global presence of hotspots or coldspots. | Determining if high/low values are globally clustered. | High G → clustering of high values; Low G → clustering of low. | Cannot locate clusters; sensitive to global outliers; depends on spatial weights. |
+| **Local Moran’s I (LISA)** | Local version of Moran’s I; identifies specific clusters/outliers. | Mapping high–high, low–low clusters and spatial outliers. | Positive local I = local clusters; negative local I = outliers. | Multiple-testing issues; sensitive to weights; unreliable with sparse data. |
+| **Local Getis-Ord G\*** | Local hotspot statistic identifying significantly high or low values. | Identifying statistically significant hotspots and coldspots. | High G* z-score = hotspot; low G* = coldspot. | Sensitive to scale & weights; can inflate significance with many neighbours. |
+
+---
+
+#### **Part 04: Visualisation and Key Findings**
+
+**4.1 Summary of Key Findings:**
+
+- Direct answer to the RQ  
+- Highlight largest spatial inequalities  
+- Connect observed patterns to policy + literature  
+- Identify unexpected or contradictory results  
+- Explain spatial mechanisms (why patterns emerge where they do)
+
+**4.2 Presentation of Visualisations:**
+
+Ensure:
+
+- Interpretive captions (not descriptive)  
+- Clear legends, size, readability  
+- Limited number of final outputs (quality > quantity)  
+- Creative but appropriate cartographic choices  
+- Consistency across all maps (colours, scales, boundaries)
+
+**4.3 Evaluation Criteria:**
+
+- Outputs are clear, concise, and well-designed.  
+- Visualisations show creativity and effective communication.  
+- Evidence of independent learning and thoughtful selection.  
+- Quantity of charts is appropriate for the report length.
+
+---
+
+**Graph 01 - Evictions per year |**  
+The analysis below shows summed evictions per year from Data Frame 3.0 (ev_year_counts).
+
+> ##### **Summary Graph 01:**  
+Eviction events decrease slightly from 2017 to 2019, with a dramatic drop in 2020. This decline directly correlated to the COVID-19 eviction freeze, which halted most executions across New York City.  
+This matters to the report because we can see that 2020 alone cannot be treated as “normal” eviction activity.  
+Using 2017–2019 provides needed context: the neighbourhood eviction footprint must be analysed throughout those years leading to 2020 to understand the pattern.
+
+---
+
+#### **Part 05: Reflection & Recommendations**
+
+**5.1 Recap & Interpretation:**
+
+- Bring together the full narrative  
+- Compare to literature and theory  
+- Discuss plausible mechanisms behind patterns  
+- Identify contradictions and explain them  
+- Assess whether your findings answer the RQ fully or partially
+
+**5.2 Policy Recommendations:**
+
+Should be:
+
+- Targeted  
+- Evidence-based  
+- Feasible  
+- Aware of political and spatial constraints  
+- Linked clearly to your results  
+
+Include at least one short paragraph explaining trade-offs or risks of misinterpretation.
+
+**5.3 Study Limitations:**
+
+Cover:
+
+- Data quality  
+- Methodological sensitivities  
+- Spatial weights  
+- MAUP + ecological fallacy  
+- CRS, geometry distortions  
+- Temporal or spatial omissions  
+- Uncertainty in local statistics  
+- Computational constraints
+
+**5.4 Future Work:**
+
+Suggest:
+
+- Alternative datasets  
+- Spatial regressions (SAR, SEM, GWR)  
+- Different spatial units  
+- More granular temporal analysis  
+- Alternative weight matrices  
+- Incorporating socio-economic covariates  
+- Validating results with supplementary data sources
+
+**5.5 Evaluation Criteria:**
+
+- Discussion is engaging, reflective, and critically aware.  
+- Clear linkage to relevant literature or policy debates.  
+- Shows understanding of implications, caveats, and broader context.
+
+---
+
+#### **Part 06: Citations**
+
+**[1]** Structural inequalities and housing instability  
+Office of the New York State Comptroller. *New Yorkers in Need: The Housing Insecurity Crisis.* February 2024.  
+https://www.osc.ny.gov/reports/new-yorkers-need-housing-insecurity-crisis

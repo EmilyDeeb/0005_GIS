@@ -15,6 +15,11 @@ I, **Emily Deeb**, confirm that the work presented in this assessment is my own.
 
 #### **Part 01: Project Scope**
 
+```{r}
+
+```
+
+
 **1.1 Background:**
 
 This section establishes the conceptual, policy, and contextual foundation for your analysis.  
